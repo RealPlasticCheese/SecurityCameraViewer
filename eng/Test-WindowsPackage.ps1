@@ -2,6 +2,10 @@ param([Parameter(Mandatory)][string]$Packages)
 $ErrorActionPreference = 'Stop'
 $installer = @(Get-ChildItem -Path $Packages -Filter '*-setup.exe')
 if ($installer.Count -ne 1) { throw 'Expected exactly one setup executable.' }
+if ($installer[0].VersionInfo.CompanyName -ne 'Frank Tzanabetis' -or
+    $installer[0].VersionInfo.LegalCopyright -notlike '*Frank Tzanabetis*') {
+    throw 'Installer publisher or copyright attribution is missing.'
+}
 function Write-InstallDiagnostics {
     Get-CimInstance -ClassName Win32_Service -Filter "Name='SecurityCameraViewer'" | Format-List Name, State, PathName, StartName
     Get-Content "$env:ProgramData/SecurityCameraViewer/host.json" -ErrorAction SilentlyContinue
@@ -25,6 +29,12 @@ $failure = Start-Process -FilePath $installer[0].FullName -ArgumentList '/VERYSI
 if ($failure.ExitCode -eq 0) { throw 'Invalid HTTPS configuration must produce a failed installer exit code.' }
 Write-Host 'PASS: invalid setup configuration reports failure; retrying with valid settings.'
 Install-Package
+$uninstallEntry = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{732C250D-B7A0-4D5D-AC81-52C931D29A23}_is1'
+if ($uninstallEntry.Publisher -ne 'Frank Tzanabetis' -or $uninstallEntry.URLInfoAbout -ne 'https://plasticcheese.com') {
+    throw 'Installed application publisher or website is missing.'
+}
+python "$PSScriptRoot/../tests/check_packaged_notices.py" "$env:ProgramFiles/SecurityCameraViewer"
+if ($LASTEXITCODE -ne 0) { throw 'Installed package notices are incomplete.' }
 $data = "$env:ProgramData/SecurityCameraViewer"
 $before = Get-Content "$data/host.json" -Raw
 if ((($before | ConvertFrom-Json).settings) -ne (Join-Path $data 'data/settings.json')) { throw 'Settings must use the service-writable data directory.' }

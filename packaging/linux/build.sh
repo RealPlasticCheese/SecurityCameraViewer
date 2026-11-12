@@ -9,7 +9,8 @@ chmod 755 "$stage/usr/lib/security-camera-viewer/SecurityCameraViewer.Web" "$sta
 cp /packaging/security-camera-viewer.service "$stage/usr/lib/systemd/system/"
 printf '#!/bin/sh\nexec python3 /usr/lib/security-camera-viewer/setup.py "$@"\n' > "$stage/usr/bin/security-camera-viewer-setup"
 chmod 755 "$stage/usr/bin/security-camera-viewer-setup"
-cp /publish/INSTALL.md "$stage/usr/share/doc/security-camera-viewer/"
+cp /publish/INSTALL.md /publish/LICENSE /publish/THIRD-PARTY-NOTICES.md /publish/THIRD-PARTY-PACKAGES.md /publish/MediaMTX-LICENSE.txt "$stage/usr/share/doc/security-camera-viewer/"
+ln -s ../../../lib/security-camera-viewer/third-party-licenses "$stage/usr/share/doc/security-camera-viewer/third-party-licenses"
 for format in deb rpm; do
     dependencies=()
     if [[ $format == deb ]]; then
@@ -19,7 +20,7 @@ for format in deb rpm; do
     fi
     fpm -s dir -t "$format" -n security-camera-viewer -v "$version" --architecture x86_64 \
         --maintainer 'Frank Tzanabetis' --description 'Security Camera Viewer web server' \
-        --url 'https://plasticcheese.com' --license 'MIT (see THIRD-PARTY-NOTICES.md)' \
+        --url 'https://plasticcheese.com' --license MIT \
         --after-install /packaging/after-install.sh --before-remove /packaging/before-remove.sh --after-remove /packaging/after-remove.sh \
         "${dependencies[@]}" --package /output/ -C "$stage" .
 done

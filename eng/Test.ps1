@@ -9,6 +9,7 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "$File failed with exit code $LASTEXITCODE." }
     }
     Run $(if ($IsLinux) { 'python3' } else { 'python' }) @('-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_packaging.py', '-v')
+    Run $(if ($IsLinux) { 'python3' } else { 'python' }) @('-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_package_notices.py', '-v')
     & "$root/tests/Test-WindowsSetup.ps1"
     if ($IsWindows) {
         Run "$env:WINDIR/System32/WindowsPowerShell/v1.0/powershell.exe" @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "$root/tests/Test-WindowsSetup.ps1")

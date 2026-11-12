@@ -21,10 +21,11 @@ Run python @((Join-Path $root 'tests/test_host_configuration.py'), (Join-Path $p
 Copy-Item -Path (Join-Path $root 'packaging/windows/*.ps1'), (Join-Path $root 'packaging/windows/*.cmd') -Destination $publish
 Copy-Item -LiteralPath (Join-Path $root 'docs/installation.md') -Destination (Join-Path $publish 'INSTALL.md')
 Copy-Item -LiteralPath (Join-Path $root 'docs/https-namecheap.md') -Destination $publish
+Copy-Item -LiteralPath (Join-Path $root 'packaging/licenses/InnoSetup-LICENSE.txt') -Destination $publish
 Copy-Item -LiteralPath (Join-Path $root 'LICENSE'), (Join-Path $root 'THIRD-PARTY-NOTICES.md') -Destination $publish
-Invoke-WebRequest 'https://raw.githubusercontent.com/dotnet/runtime/v10.0.0/LICENSE.TXT' -OutFile (Join-Path $publish 'DotNet-LICENSE.txt')
-Invoke-WebRequest 'https://raw.githubusercontent.com/dotnet/runtime/v10.0.0/THIRD-PARTY-NOTICES.TXT' -OutFile (Join-Path $publish 'DotNet-THIRD-PARTY-NOTICES.txt')
+Run python @((Join-Path $root 'eng/package-notices.py'), $publish, (Join-Path $root 'src/SecurityCameraViewer.Web/obj/project.assets.json'))
 Invoke-WebRequest 'https://raw.githubusercontent.com/bluenviron/mediamtx/v1.21.1/LICENSE' -OutFile (Join-Path $publish 'MediaMTX-LICENSE.txt')
+Run python @((Join-Path $root 'tests/check_packaged_notices.py'), $publish)
 @{ version = $Version; commit = $Commit; runtime = $Runtime; mediamtx = '1.21.1' } | ConvertTo-Json | Set-Content (Join-Path $publish 'release.json') -Encoding utf8
 Compress-Archive -Path "$publish/*" -DestinationPath (Join-Path $packages "SecurityCameraViewer-$Version-win-x64.zip")
 if (-not (Test-Path -LiteralPath $InnoCompiler)) { throw 'Install Inno Setup 6 or pass -InnoCompiler.' }

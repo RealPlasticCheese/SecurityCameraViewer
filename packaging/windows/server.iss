@@ -13,6 +13,10 @@ AppId={{732C250D-B7A0-4D5D-AC81-52C931D29A23}
 AppName=Security Camera Viewer
 AppPublisher=Frank Tzanabetis
 AppPublisherURL=https://plasticcheese.com
+AppSupportURL=https://plasticcheese.com
+AppCopyright=Copyright (c) 2026 Frank Tzanabetis
+DisableWelcomePage=no
+LicenseFile={#PublishDirectory}\LICENSE
 AppVersion={#PackageVersion}
 DefaultDirName={autopf}\SecurityCameraViewer
 DefaultGroupName=Security Camera Viewer
@@ -60,6 +64,8 @@ var
 procedure InitializeWizard;
 var PreviousPort: String;
 begin
+  WizardForm.WelcomeLabel2.Caption := 'Created by Frank Tzanabetis'#13#10 +
+    'https://plasticcheese.com'#13#10#13#10 + WizardForm.WelcomeLabel2.Caption;
   HostPage := CreateInputQueryPage(wpSelectDir, 'Server settings', 'Choose the HTTP port',
     'Existing host settings are preserved during upgrades. Camera settings are configured in the browser.');
   HostPage.Add('HTTP port (use a separate backend port behind HTTPS):', False);
