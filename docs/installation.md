@@ -16,6 +16,12 @@ to a pull request to run the same package checks before merging.
 
 The Linux and Windows packages contain version and source-commit metadata in release.json. Each package has an adjacent SHA-256 checksum. Linux package checks use Ubuntu 24.04 and Fedora 43 containers. Windows package checks exercise installation, upgrade, service startup, and removal on a disposable host.
 
+Windows setup displays Frank Tzanabetis and https://plasticcheese.com on the
+welcome page and in the installed application's publisher information. Linux
+packages record the same maintainer and homepage. Every package includes the
+project MIT license, third-party notices, and an inventory of the exact .NET and
+NuGet dependency versions in THIRD-PARTY-PACKAGES.md and third-party-packages.json.
+
 ## Linux DEB / RPM
 
 For Ubuntu 24.04 / Linux Mint 22, download the `.deb` and install with:

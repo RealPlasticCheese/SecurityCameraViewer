@@ -5,6 +5,7 @@ version=$1
 commit=$2
 publish="$PWD/artifacts/publish/linux-x64"
 output="$PWD/artifacts/packages"
+python3 -m unittest discover -s tests -p test_package_notices.py -v
 python3 -m unittest discover -s tests -p test_packaging.py -v
 python3 -m unittest discover -s tests -p test_deployment.py -v
 if command -v node >/dev/null; then
@@ -31,9 +32,9 @@ cp packaging/linux/setup.py web-https.sh "$publish/"
 cp docs/installation.md "$publish/INSTALL.md"
 cp docs/https-namecheap.md "$publish/"
 cp LICENSE THIRD-PARTY-NOTICES.md "$publish/"
-curl --fail --location --silent --show-error https://raw.githubusercontent.com/dotnet/runtime/v10.0.0/LICENSE.TXT -o "$publish/DotNet-LICENSE.txt"
-curl --fail --location --silent --show-error https://raw.githubusercontent.com/dotnet/runtime/v10.0.0/THIRD-PARTY-NOTICES.TXT -o "$publish/DotNet-THIRD-PARTY-NOTICES.txt"
+python3 eng/package-notices.py "$publish" src/SecurityCameraViewer.Web/obj/project.assets.json
 curl --fail --location --silent --show-error https://raw.githubusercontent.com/bluenviron/mediamtx/v1.21.1/LICENSE -o "$publish/MediaMTX-LICENSE.txt"
+python3 tests/check_packaged_notices.py "$publish"
 printf '{"version":"%s","commit":"%s","runtime":"linux-x64","mediamtx":"1.21.1"}\n' "$version" "$commit" > "$publish/release.json"
 bash eng/package-linux.sh "$publish" "$version" "$output"
 (cd "$output"; for file in *.deb *.rpm *.tar.gz; do sha256sum "$file" > "$file.sha256"; done)
