@@ -2,7 +2,7 @@
 
 Created by [Frank Tzanabetis](https://plasticcheese.com). The project is distributed under the [MIT License](LICENSE). See [third-party notices](THIRD-PARTY-NOTICES.md) for bundled components.
 
-**Installable builds:** See [installation and upgrades](docs/installation.md) for Linux and Windows packages.
+**Installable builds:** Download packages from [GitHub Releases](https://github.com/RealPlasticCheese/SecurityCameraViewer/releases). See [installation and upgrades](docs/installation.md) for Linux and Windows packages.
 
 **Sample RTSP camera:** use the separate [video test harness](tools/RtspVideoHarness/README.md) to play local files in filename or date order, or stream a YouTube video/active livestream with audio. It supports black gaps, offline gaps to simulate sleeping cameras, and configurable ports for multiple instances, with its own Windows/Linux build and run scripts.
 

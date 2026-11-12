@@ -6,6 +6,14 @@ included; OS runtime libraries and FFmpeg remain prerequisites. MediaMTX is incl
 
 ## Packages
 
+Download a versioned Linux or Windows package from [GitHub Releases](https://github.com/RealPlasticCheese/SecurityCameraViewer/releases). Verify the adjacent SHA-256 file before installing.
+
+Maintainers can run **Build packages** manually in GitHub Actions. Choose a numeric
+version higher than the version already installed, and select **publish** on
+the main branch to create a release after both platform jobs pass. Builds without
+publishing are available as workflow artifacts. Apply the **build-packages** label
+to a pull request to run the same package checks before merging.
+
 The Linux and Windows packages contain version and source-commit metadata in release.json. Each package has an adjacent SHA-256 checksum. Linux package checks use Ubuntu 24.04 and Fedora 43 containers. Windows package checks exercise installation, upgrade, service startup, and removal on a disposable host.
 
 ## Linux DEB / RPM
