@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NVR recordings — Security Camera Viewer</title>
+  <link rel="stylesheet" href="/nvr.css">
+  <script src="/nvr.js" defer></script>
+</head>
+<body>
+<header><a href="/">← Camera viewer</a><h1>NVR recordings</h1><p>Browse recordings stored on your RaySharp recorder and save MP4 copies on this server.</p></header>
+<main>
+  <p id="notice" role="status" aria-live="polite"></p>
+  <details id="connection-panel">
+    <summary>Recorder connection</summary>
+    <form id="connection-form">
+      <div class="fields">
+        <label>Host<input id="host" required maxlength="253" placeholder="192.0.2.10" autocomplete="off"></label>
+        <label>Proprietary port<input id="port" type="number" min="1" max="65535" value="9000" required></label>
+        <label>Username<input id="username" required maxlength="255" value="admin" autocomplete="username"></label>
+        <label>Password<input id="password" type="password" maxlength="255" autocomplete="new-password" placeholder="Leave blank to retain current password"></label>
+      </div>
+      <p class="help">A password entered here lasts until the server restarts. A password file takes precedence and supports reconnecting after restart.</p>
+      <button type="submit">Save connection</button>
+    </form>
+  </details>
+  <section aria-labelledby="device-title"><div class="heading"><h2 id="device-title">Recorder</h2><button id="refresh-device" type="button">Connect / refresh information</button></div><p id="device-info">Connect to load recorder information and channels.</p><p id="storage-info" class="help"></p></section>
+  <section aria-labelledby="search-title">
+    <h2 id="search-title">Recordings on the NVR</h2>
+    <form id="search-form" class="fields">
+      <label>Channel<select id="channel" required><option value="">Connect first</option></select></label>
+      <label>Date on recorder<input id="date" type="date" required></label>
+      <button type="submit">Search recordings</button>
+    </form>
+    <p class="help">Dates and times use the recorder's clock. Search results remain on the NVR; preparing playback retrieves a copy to the server.</p>
+    <div class="table-scroll"><table><thead><tr><th>Start</th><th>End</th><th>Recording type</th><th>Size</th><th>Action</th></tr></thead><tbody id="recordings"><tr><td colspan="5">Choose a channel and date, then search.</td></tr></tbody></table></div>
+    <form id="export-form">
+      <h3>Prepare playback / save a clip</h3>
+      <div class="fields"><label>Start on recorder<input id="begin" type="datetime-local" step="1" required></label><label>End on recorder<input id="end" type="datetime-local" step="1" required></label><button type="submit">Retrieve and save MP4</button></div>
+      <p class="help">Select up to one hour per clip. H.264 video only; audio is not included. Recorder keyframe boundaries may shift the start slightly.</p>
+    </form>
+  </section>
+  <section aria-labelledby="playback-title"><h2 id="playback-title">Playback</h2><p id="playing-label">Choose a saved clip to play.</p><video id="player" controls playsinline preload="metadata"></video><p id="playback-error" role="status"></p></section>
+  <section aria-labelledby="exports-title"><div class="heading"><h2 id="exports-title">Transfers and saved clips</h2><button id="refresh-exports" type="button">Refresh</button></div><div id="jobs"></div><div id="saved"></div><p class="help">Saved clips survive a server restart. Delete removes only the server copy; NVR recordings are unchanged.</p></section>
+</main>
+</body>
+</html>

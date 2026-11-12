@@ -1,0 +1,22 @@
+[Unit]
+Description=Security Camera Viewer web server
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=exec
+User=security-camera-viewer
+Group=security-camera-viewer
+WorkingDirectory=/var/lib/security-camera-viewer
+ExecStart=/usr/lib/security-camera-viewer/SecurityCameraViewer.Web --host-config /etc/security-camera-viewer/host.json
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,35 @@
+:root { color-scheme: dark; font: 16px system-ui, sans-serif; background: #10151c; color: #e5edf6; }
+* { box-sizing: border-box; }
+body { max-width: 1200px; margin: auto; padding: 24px; }
+a { color: #89c7ff; }
+h1 { margin-bottom: 8px; }
+h2 { font-size: 1.2rem; margin-top: 0; }
+h3 { font-size: 1rem; }
+header p, .help { color: #a8bacb; }
+section, details { background: #18212c; border: 1px solid #354354; border-radius: 8px; margin: 20px 0; padding: 20px; }
+summary { cursor: pointer; font-weight: 600; }
+details form { margin-top: 20px; }
+.fields { display: flex; gap: 16px; flex-wrap: wrap; align-items: end; }
+label { display: flex; flex-direction: column; gap: 6px; flex: 1 1 180px; }
+.wide { flex-basis: 100%; }
+input, select, button { font: inherit; border: 1px solid #526980; border-radius: 5px; padding: 10px; color: inherit; background: #101822; }
+input, select { width: 100%; }
+button { cursor: pointer; background: #245b87; }
+button:disabled { opacity: .5; cursor: wait; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid #91d2ff; outline-offset: 3px; }
+.heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.heading h2 { margin: 0; }
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+th, td { text-align: left; padding: 12px 8px; border-bottom: 1px solid #354354; white-space: nowrap; }
+th { color: #a8bacb; font-weight: 500; }
+video { width: 100%; max-height: 65vh; background: #000; border-radius: 5px; }
+#notice { min-height: 24px; color: #a7d9ff; overflow-wrap: anywhere; }
+.clip, .job { border-bottom: 1px solid #354354; padding: 14px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.clip span, .job span { flex: 1 1 300px; overflow-wrap: anywhere; }
+.job-details { flex: 1 1 300px; min-width: 0; }
+.job-description, .job-progress-text { display: block; }
+.job-progress-text { color: #a8bacb; font-size: .9rem; }
+.job progress { display: block; width: 100%; height: 16px; margin: 10px 0 6px; accent-color: #89c7ff; }
+.help { font-size: .9rem; line-height: 1.5; }
+@media (max-width: 600px) { body { padding: 12px; } section, details { padding: 14px; } .fields > button { width: 100%; } }

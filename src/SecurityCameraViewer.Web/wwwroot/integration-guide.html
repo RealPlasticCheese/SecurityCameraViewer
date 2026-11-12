@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Integration guide - Security Camera Viewer</title><link rel="stylesheet" href="/app.css"></head><body class="integration-guide"><article><p><a href="/">Back to viewer</a></p><h1>Integrations, API tokens and webhooks</h1>
+<p>The web server exposes a versioned REST API, live server-sent events (SSE), and outgoing JSON webhooks. It runs on Linux and Windows with the same deployment as the viewer: .NET 10 and FFmpeg, or a self-contained web publish plus FFmpeg. There is no database server, message broker, cloud account or Home Assistant add-on to install. Recording metadata uses embedded SQLite.</p>
+<h2>Enable access from the hamburger menu</h2>
+<ol>
+<li>Open <strong>Integrations &amp; API</strong>, then <strong>Enable integrations &amp; sign-in</strong>.</li>
+<li>Save the administrator token displayed once. The current browser receives a session cookie automatically. Other browsers sign in with that token using <strong>Sign in</strong> in the menu.</li>
+<li>Create a separate token named <strong>Home Assistant</strong> with <strong>Read</strong> and <strong>Trigger recordings</strong>. Add <strong>Control</strong> if automations need to arm/disarm cameras or deliberately override zone schedules. Avoid giving automations administrator permissions.</li>
+<li>Configure outgoing webhooks in the same dialog. Select event types, cameras, zones and a cooldown; use <strong>Test</strong> and <strong>Refresh deliveries</strong> to check the receiver. Test deliveries have type <code>system.test</code> and intentionally bypass subscription filters and cooldowns.</li>
+</ol>
+<p>Before enabling integrations, the original trusted-LAN browser mode is unchanged. After enabling, <strong>all</strong> API routes, including older browser controls, recordings, snapshots and WebSockets, require authentication. Versioned API routes always require authentication, even before setup. There is no anonymous bypass through old routes. Static HTML, scripts and public sign-in status remain available.</p>
+<p>Send <code>Authorization: Bearer scv_...</code>; never put tokens in URLs. Tokens are generated with 256 random bits and stored only as SHA-256 hashes. Expiry is optional, and revocation applies to the next request, including browser sessions. Streaming connections recheck access regularly. Administrator sessions last twelve hours or until server restart. Token authentication persists across restart. Browser administration requires an administrator token; narrower scopes are intended for API clients.</p>
+<table>
+<thead>
+<tr>
+<th>Scope</th>
+<th>Access</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>read</code></td>
+<td>Camera/zone discovery, snapshots, recording metadata/media, health, SSE and API specification</td>
+</tr>
+<tr>
+<td><code>trigger</code></td>
+<td>Request or extend a recording</td>
+</tr>
+<tr>
+<td><code>control</code></td>
+<td>Temporary arming/disarming; also required alongside <code>trigger</code> when bypassing schedules</td>
+</tr>
+<tr>
+<td><code>admin</code></td>
+<td>All scopes, settings changes, protecting/deleting recordings, token and webhook management</td>
+</tr>
+</tbody>
+</table>
+<p>Use HTTPS when credentials cross an untrusted network. HTTP remains available for a trusted local network. Use your normal HTTPS reverse proxy if needed; preserve Host/Origin consistently. The application does not trust arbitrary forwarded headers. Do not expose trusted-LAN setup mode to the Internet.</p>
+<p>If all administrator credentials are lost, stop the server, then run the following with the <strong>same settings path and integration directory</strong> used by the service. It prints a new administrator token once and exits; restart the service normally afterward. Do not run another writer against a running server's settings directory.</p>
+<pre><code class="language-sh">dotnet SecurityCameraViewer.Web.dll --settings /srv/camera-viewer/settings.json --create-admin-token true
+</code></pre>
+<p>Windows uses the same command with a Windows settings path. The default integration directory is <code>integrations</code> beside the web settings file. Override it with <code>--integrations-directory /srv/camera-viewer/integrations</code>. Preserve that directory across upgrades and container replacements. It holds token hashes, webhook URLs and signing secrets, temporary arming overrides, delivery files and trigger receipts. Linux-created files use owner-only permissions; on Windows restrict the directory to the service account through its ACL. Protect backups too: webhook URLs and signing secrets are sensitive. Corrupt authentication configuration fails startup instead of silently allowing anonymous access.</p>
+<h2>REST API</h2>
+<p>Base path: <code>/api/v1</code>. The menu links to <code>/api/v1/openapi.json</code>, which documents the routes and write schemas. JSON uses camelCase; timestamps are ISO 8601 UTC. Camera IDs such as <code>camera-1</code> identify recorder channels and remain stable when names change. Replacing the recorder on the same channel intentionally keeps that identity. Zone IDs are stable 32-character UUIDs; retain IDs when editing and omit them for newly created zones. Existing zone configurations receive deterministic IDs on migration.</p>
+<table>
+<thead>
+<tr>
+<th>Method and path</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /cameras</code> or <code>/cameras/{id}</code></td>
+<td>Names, live state, recording state, buffer coverage and arming state</td>
+</tr>
+<tr>
+<td><code>GET /cameras/{id}/zones</code></td>
+<td>Rectangle/polygon geometry, named zones, weekly schedules and active state</td>
+</tr>
+<tr>
+<td><code>GET /cameras/{id}/snapshot</code></td>
+<td>Latest live JPEG; returns 404 until live viewing supplies a frame</td>
+</tr>
+<tr>
+<td><code>GET</code>, <code>PUT /cameras/{id}/arming</code></td>
+<td>Read/set an expiring override</td>
+</tr>
+<tr>
+<td><code>POST /recordings/trigger</code></td>
+<td>Start/extend recording, preserving the RAM pre-event buffer</td>
+</tr>
+<tr>
+<td><code>GET /recording-requests/{id}</code></td>
+<td>Trigger receipt and any related recordings</td>
+</tr>
+<tr>
+<td><code>GET /recordings?cameraId=camera-1&amp;before=...&amp;limit=50</code></td>
+<td>Newest-first recordings; maximum 100 per page</td>
+</tr>
+<tr>
+<td><code>GET /recordings/timeline?cameraId=...&amp;since=...&amp;before=...</code></td>
+<td>Overlapping coverage (up to two days), maximum 2,000 segments with a truncation flag</td>
+</tr>
+<tr>
+<td><code>GET /recordings/{id}/markers</code></td>
+<td>Timestamped activity markers for seeking, maximum 8,192 per request</td>
+</tr>
+<tr>
+<td><code>GET /recordings/{id}</code></td>
+<td>Readiness, trigger sources, duration and media links</td>
+</tr>
+<tr>
+<td><code>GET /recordings/{id}/video[?download=true]</code></td>
+<td>Authenticated MP4 with byte-range support</td>
+</tr>
+<tr>
+<td><code>GET /recordings/{id}/thumbnail</code></td>
+<td>Authenticated JPEG thumbnail</td>
+</tr>
+<tr>
+<td><code>PUT /recordings/{id}/protection</code></td>
+<td><code>{ "protected": true }</code></td>
+</tr>
+<tr>
+<td><code>DELETE /recordings/{id}</code></td>
+<td>Delete a completed, unprotected recording</td>
+</tr>
+<tr>
+<td><code>GET</code>, <code>PUT /settings/recording</code></td>
+<td>Read/replace full recording and zone settings</td>
+</tr>
+<tr>
+<td><code>GET /health</code></td>
+<td>Camera errors, failed recordings, storage capacity, reduced pre-roll and webhook backlog</td>
+</tr>
+<tr>
+<td><code>GET /events</code></td>
+<td>Live SSE feed</td>
+</tr>
+</tbody>
+</table>
+<p>To edit zones through the API, retrieve <code>/settings/recording</code>, update the relevant camera's zones and PUT the full document back. Applying recording settings restarts capture workers. Shapes use normalized coordinates; exclusion zones win over inclusions. Weekly schedules use the recording settings timezone. The zone response distinguishes the weekly schedule from its effective active state under an arming override.</p>
+<p>Arming payloads use <code>mode</code>: <code>schedule</code>, <code>armed</code>, or <code>disarmed</code>. Temporary modes require <code>expiresAt</code> up to seven days ahead. <code>armed</code> ignores weekly time ranges but retains shapes and exclusions; <code>disarmed</code> suppresses new automatic motion triggers. Event mode keeps buffering in RAM and allows its existing tail to finish. Continuous and available-video modes have no pre-event buffer; disarming closes capture at a fragment boundary, and arming resumes it. Expiry automatically resumes schedules, including across a server restart. Neither mode enables disabled recording or a disabled camera.</p>
+<p>Example external trigger:</p>
+<pre><code class="language-http">POST /api/v1/recordings/trigger
+Authorization: Bearer &lt;trigger-token&gt;
+Idempotency-Key: front-door-open-20261002T090000Z
+Content-Type: application/json
+
+{&quot;cameraId&quot;:&quot;camera-1&quot;,&quot;source&quot;:&quot;home-assistant&quot;,&quot;reason&quot;:&quot;Front door opened&quot;,&quot;durationSeconds&quot;:20,&quot;overrideSchedule&quot;:false}
+</code></pre>
+<p>An optional <code>zoneIds</code> array tags the cause for filtering; it does not redefine detection geometry. In Event mode, a trigger requires a connected, enabled recording camera with a filled buffer. Duration is 1–3600 seconds from admission at a keyframe; motion can extend the result and the configured maximum clip length still splits long events. Concurrent triggers extend the existing recording and appear in <code>additionalTriggers</code>. An explicit schedule override requires both <code>trigger</code> and <code>control</code> scopes. Off-schedule, disarmed, disabled or unavailable cameras return 409 unless the permitted override applies. Insufficient scope returns 403; missing/expired/revoked credentials return 401.</p>
+<p>In continuous and available-video modes, external triggers require active, scheduled capture and add timestamped markers to existing footage. Duration and schedule overrides do not restart or extend capture; use temporary arming to change its schedule. Markers persist separately from the bounded <code>additionalTriggers</code> summary. See the Motion &amp; recording help guide for modes, migration and playback.</p>
+<p>Retries must reuse the same <code>Idempotency-Key</code> and body. Keys are scoped to the issuing token and retained at least 24 hours; changing the body with the same key returns 409. Receipts persist before admission to avoid duplicate recordings after restart. A crash between receipt persistence and capture can leave an accepted receipt without footage; query its related recordings or consume recording lifecycle events. <code>202 Accepted</code> confirms admission, not successful finalization. Failed/rejected requests need a new key for a deliberate new attempt.</p>
+<h2>Events and reliable delivery</h2>
+<p>Subscriptions support <code>motion.started</code>, <code>motion.ended</code>, <code>recording.started</code>, <code>recording.ready</code>, <code>recording.failed</code>, <code>camera.offline</code>, <code>camera.online</code>, <code>storage.warning</code>, and <code>storage.recovered</code>. Motion events report confirmed <strong>zone transitions</strong>, not every frame. With no inclusion zones the synthetic ID <code>full-frame</code> represents the monitored picture. An exclusion is never reported as a motion zone. Alternative detectors can return per-zone scores through <code>MotionSample.Zones</code>; older aggregate implementations continue to produce full-frame events.</p>
+<p><code>recording.ready</code> is emitted only after the MP4 has been finalized and made available. A ready event may also mark an interrupted but recoverable recording. <code>motion.started</code> may precede a recording ID; correlate later events by camera, zone and time. Camera online/offline refers to the background recording stream; planned configuration restarts do not report an outage. Storage warnings cover maintenance errors, low free disk and nearing the configured quota. Recovery is a state transition, not a repeated heartbeat.</p>
+<pre><code class="language-json">{
+  &quot;schemaVersion&quot;: 1,
+  &quot;id&quot;: &quot;unique-event-id&quot;,
+  &quot;type&quot;: &quot;motion.started&quot;,
+  &quot;timestamp&quot;: &quot;2026-10-02T09:00:00Z&quot;,
+  &quot;cameraId&quot;: &quot;camera-1&quot;,
+  &quot;channel&quot;: 1,
+  &quot;cameraName&quot;: &quot;Driveway&quot;,
+  &quot;zones&quot;: [{&quot;id&quot;: &quot;stable-zone-id&quot;, &quot;name&quot;: &quot;Gate&quot;}],
+  &quot;recordingId&quot;: null,
+  &quot;data&quot;: {&quot;changedPercent&quot;: 4.2}
+}
+</code></pre>
+<p>Empty camera/zone filters match all. When both are specified, both must match. Storage events carry no camera/zone information, so filtered subscriptions do not receive them. Recording events inherit the zones known from their triggers. Cooldown is per subscription, event type, camera and zone set; it does not merge start/end events. Retries ignore cooldowns. Set cooldown to zero if every transition is needed.</p>
+<p>Each subscribed event is placed in a local delivery file before the first HTTP attempt. Up to four destinations deliver concurrently, with one in-flight delivery per subscription. The dispatcher accepts any 2xx response, has a five-second timeout, does not follow redirects, and retries connection errors, 408, 425, 429 and 5xx responses. Backoff doubles with jitter, honors <code>Retry-After</code> up to one hour, and stops after ten attempts. Other failures become failed deliveries immediately. The menu lets you retry or dismiss them, pause subscriptions, rotate secrets and inspect results. Deleting a subscription cancels its queued deliveries; editing its URL or secret applies to pending deliveries too.</p>
+<p>The queue holds up to 2,000 pending/failed deliveries and approximately 32 MiB of serialized payloads, plus the current event. It retains 100 completed/cancelled entries. A full queue or persistence error appears in health/menu notices. Capture publication uses a bounded 1,024-event memory channel so webhook I/O cannot stall capture; overflow is counted. Graceful shutdown drains admission after stopping capture. A hard crash can lose events still in this small memory channel. Persisted deliveries survive restart and provide <strong>at-least-once</strong> delivery: consumers should deduplicate by event ID or stable delivery ID. This is not an exactly-once transaction spanning recording and webhooks.</p>
+<p>Headers are <code>X-SCV-Event</code>, <code>X-SCV-Delivery</code>, <code>X-SCV-Timestamp</code> (Unix seconds), and <code>X-SCV-Signature</code>. The signature is <code>sha256=</code> followed by lowercase hex HMAC-SHA256 using the signing secret's UTF-8 bytes over <code>timestamp + "." + raw JSON body</code>. Verify in constant time, reject stale timestamps (for example beyond five minutes), and deduplicate delivery IDs. Every retry receives a fresh timestamp/signature and retains its delivery/event IDs. Home Assistant webhook triggers can consume the JSON without verifying these signature headers; use a long random webhook URL secret and local-only access.</p>
+<p>SSE sends the same event envelope. It starts with a <code>connected</code> event asking clients to refresh state, then named events and 15-second keepalives. It has no historical replay: <code>Last-Event-ID</code> does not recover missed events. Slow readers are disconnected rather than consuming unlimited memory. Use <code>/health</code>, <code>/cameras</code>, and <code>/recordings</code> to resynchronize after reconnect. Durable automation delivery should use webhooks.</p>
+<p><strong>Disk activity:</strong> video pre-roll remains entirely in RAM. Queue files, retries/results, trigger receipts and explicit configuration changes create small metadata writes. Idle polling does not rewrite the queue, token store or arming state. There is no continuous video spool.</p>
+<h2>Home Assistant examples</h2>
+<p>Use a webhook automation for incoming viewer events. Replace the ID with a long random value, then set the viewer's destination to <code>http://homeassistant.local:8123/api/webhook/&lt;that-value&gt;</code>. Example using the <a href="https://www.home-assistant.io/docs/automation/trigger/#webhook-trigger">Home Assistant webhook trigger</a>:</p>
+<pre><code class="language-yaml">automation:
+  - alias: Camera motion notification
+    triggers:
+      - trigger: webhook
+        webhook_id: replace-with-long-random-secret
+        allowed_methods: [POST]
+        local_only: true
+    conditions:
+      - condition: template
+        value_template: &quot;{{ trigger.json.type == 'motion.started' }}&quot;
+    actions:
+      - action: persistent_notification.create
+        data:
+          title: &quot;{{ trigger.json.cameraName }}&quot;
+          message: &quot;Motion in {{ trigger.json.zones | map(attribute='name') | join(', ') }}&quot;
+</code></pre>
+<p>For triggers from Home Assistant, use its <a href="https://www.home-assistant.io/integrations/rest_command/">RESTful Command integration</a>. Store the complete <code>Bearer scv_...</code> header in <code>secrets.yaml</code> under <code>camera_viewer_authorization</code>. Restart/reload REST commands after editing configuration. Use the Linux NUC's address reachable from Home Assistant; <code>localhost</code> inside a container points to that container.</p>
+<pre><code class="language-yaml">rest_command:
+  camera_record_event:
+    url: &quot;http://camera-nuc:5080/api/v1/recordings/trigger&quot;
+    method: POST
+    headers:
+      authorization: !secret camera_viewer_authorization
+      Idempotency-Key: &quot;{{ event_key }}&quot;
+    content_type: application/json
+    payload: &gt;-
+      {{ dict(cameraId=camera_id, source='home-assistant', reason=reason,
+              durationSeconds=20, overrideSchedule=false) | tojson }}
+
+automation:
+  - alias: Record when front door opens
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.front_door
+        to: &quot;on&quot;
+    actions:
+      - action: rest_command.camera_record_event
+        data:
+          camera_id: camera-1
+          reason: Front door opened
+          event_key: &quot;door-{{ trigger.to_state.context.id }}&quot;
+</code></pre>
+<p>These examples use standard HTTP and JSON; Node-RED, scripts, other automation platforms and custom motion detectors can use the same API. Notification media links require authenticated fetching; never append an API token to a URL to make it public.</p>
+<h2>Implementation and verification</h2>
+<p><code>ICameraEventPublisher</code> decouples capture/storage from transport. <code>IntegrationEventHub</code> provides bounded fan-out, <code>WebhookDispatcher</code> owns persistence/retry/delivery, <code>IntegrationSettings</code> owns configuration/token hashes, <code>IntegrationAuth</code> owns access checks/sessions, and <code>RecordingTriggers</code> owns request deduplication. The recorder continues to depend on <code>IMotionDetectorFactory</code>, <code>IMotionFrameSource</code>, <code>IEncodedVideoSource</code> and <code>IRecordingEventStore</code>; detector replacements need no webhook or web-host dependency.</p>
+<p>Run <code>dotnet run --project tests/SecurityCameraViewer.Integration.Tests -c Release -- artifacts/web/SecurityCameraViewer.Web.dll</code> after publishing. It uses temporary test directories, a local HTTP receiver and the authenticated RTSP fixture to check signatures/retries/recovery, scopes and legacy-route protection, trigger deduplication, external still-scene recording, token persistence/revocation and arming expiry. Existing recording and web regression suites cover buffering, schedules, stream failures, protection, retention and multiple viewers.</p></article></body></html>

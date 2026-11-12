@@ -1,0 +1,15 @@
+password.txt
+**/bin/
+**/obj/
+artifacts/
+.vs/
+*.user
+*.log
+local.settings.json
+.packages/
+
+# Private unified server settings and one-time converter backups.
+settings.json
+settings-backup-*/
+__pycache__/
+/models/

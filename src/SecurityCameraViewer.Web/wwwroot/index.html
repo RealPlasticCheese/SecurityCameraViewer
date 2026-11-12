@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Security Camera Viewer</title><link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#10151e">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <script defer src="/app-install.js"></script>
+  <script defer src="/camera-collection.js"></script>
+  <script defer src="/camera-playback-policy.js"></script>
+  <script defer src="/camera-mp4.js"></script>
+  <script defer src="/camera-frame-clock.js"></script>
+  <script defer src="/camera-video.js"></script>
+  <script defer src="/camera-pip.js"></script>
+  <script defer src="/camera-overlay-appearance.js"></script>
+  <script defer src="/streaming.js"></script>
+  <script defer src="/detection-overlays.js"></script>
+  <script defer src="/ai-model-settings.js"></script>
+  <link rel="stylesheet" href="/app.css"><script defer src="/camera-layout.js"></script><script defer src="/camera-zoom.js"></script><script defer src="/camera-enhancements.js"></script><script defer src="/password-visibility.js"></script><script defer src="/live-media.js"></script><script defer src="/talkback.js"></script><script defer src="/app.js"></script><script defer src="/playback-controls.js"></script><script defer src="/live-rewind.js"></script><script defer src="/camera-setup.js"></script><script defer src="/wake-lock.js"></script><script defer src="/recording-filters.js"></script><script defer src="/recording-archive.js"></script><script defer src="/detection-templates.js"></script><script defer src="/detection-template-settings.js"></script><script defer src="/recording.js"></script><script defer src="/integrations.js"></script>
+</head>
+<body>
+<!-- Selected Lucide icons; see vendor/lucide/LICENSE and THIRD-PARTY-NOTICES.md. -->
+<svg class="playback-icon-definitions" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="lucide-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" /></symbol>
+    <symbol id="lucide-play" viewBox="0 0 24 24"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" /></symbol>
+    <symbol id="lucide-pause" viewBox="0 0 24 24"><rect x="14" y="3" width="5" height="18" rx="1" />
+  <rect x="5" y="3" width="5" height="18" rx="1" /></symbol>
+    <symbol id="lucide-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+  <path d="M3 3v5h5" /></symbol>
+    <symbol id="lucide-rotate-cw" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+  <path d="M21 3v5h-5" /></symbol>
+    <symbol id="lucide-snail" viewBox="0 0 24 24"><path d="M2 13a6 6 0 1 0 12 0 4 4 0 1 0-8 0 2 2 0 0 0 4 0" />
+  <circle cx="10" cy="13" r="8" />
+  <path d="M2 21h12c4.4 0 8-3.6 8-8V7a2 2 0 1 0-4 0v6" />
+  <path d="M18 3 19.1 5.2" />
+  <path d="M22 3 20.9 5.2" /></symbol>
+    <symbol id="lucide-rabbit" viewBox="0 0 24 24"><path d="M13 16a3 3 0 0 1 2.24 5" />
+  <path d="M18 12h.01" />
+  <path d="M18 21h-8a4 4 0 0 1-4-4 7 7 0 0 1 7-7h.2L9.6 6.4a1 1 0 1 1 2.8-2.8L15.8 7h.2c3.3 0 6 2.7 6 6v1a2 2 0 0 1-2 2h-1a3 3 0 0 0-3 3" />
+  <path d="M20 8.54V4a2 2 0 1 0-4 0v3" />
+  <path d="M7.612 12.524a3 3 0 1 0-1.6 4.3" /></symbol>
+    <symbol id="lucide-pin" viewBox="0 0 24 24"><path d="M12 17v5" />
+  <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" /></symbol>
+    <symbol id="lucide-pin-off" viewBox="0 0 24 24"><path d="M12 17v5" />
+  <path d="M15 9.34V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H7.89" />
+  <path d="m2 2 20 20" />
+  <path d="M9 9v1.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h11" /></symbol>
+    <symbol id="lucide-radio" viewBox="0 0 24 24"><path d="M16.247 7.761a6 6 0 0 1 0 8.478" />
+  <path d="M19.075 4.933a10 10 0 0 1 0 14.134" />
+  <path d="M4.925 19.067a10 10 0 0 1 0-14.134" />
+  <path d="M7.753 16.239a6 6 0 0 1 0-8.478" />
+  <circle cx="12" cy="12" r="2" /></symbol>
+    <symbol id="lucide-volume-2" viewBox="0 0 24 24"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z" />
+  <path d="M16 9a5 5 0 0 1 0 6" />
+  <path d="M19.364 18.364a9 9 0 0 0 0-12.728" /></symbol>
+    <symbol id="lucide-volume-x" viewBox="0 0 24 24"><path d="M11 4.702a.7.7 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.7.7 0 0 0 11 19.298z" />
+  <path d="m16.5 14.5 5-5" />
+  <path d="m16.5 9.5 5 5" /></symbol>
+</svg>
+<main>
+  <div class="viewer-controls">
+    <button id="menu-toggle" aria-label="Open viewer menu" aria-expanded="false" aria-controls="viewer-menu"><span aria-hidden="true">☰</span></button>
+    <section id="viewer-menu" aria-label="Viewer menu" hidden>
+      <div class="viewer-menu-heading"><h1>SECURITY CAMERA VIEWER</h1><button id="fullscreen" type="button" aria-label="Full screen" aria-pressed="false" title="Full screen (F11)"><svg data-fullscreen-icon="expand" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M21 16v3a2 2 0 0 1-2 2h-3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/></svg><svg data-fullscreen-icon="shrink" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="m15 15 6 6"/><path d="m15 9 6-6"/><path d="M21 15h-6v6"/><path d="M21 9h-6V3"/><path d="M3 15h6v6"/><path d="m3 21 6-6"/><path d="M3 9h6V3"/><path d="M9 9 3 3"/></svg></button><button id="sideways-view" type="button" aria-label="Use sideways camera layout" aria-pressed="false" title="Use sideways camera layout"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 5v14M3 12h18"/></svg></button><button id="refresh-app" type="button" aria-label="Refresh app" title="Refresh app"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></button></div>
+      <p id="recorder" class="muted">Connecting to the local server…</p>
+      <span id="overall" role="status"><i class="dot"></i><span>Connecting to server</span></span>
+      <nav aria-label="Connection controls"><button id="connect" class="primary">Connect</button><button id="disconnect" disabled>Disconnect</button><button id="connection">Cameras &amp; configurations</button><button id="camera-metadata">Camera metadata</button></nav>
+      <nav aria-label="Viewing controls"><button id="quality">Quality: Main stream</button><button id="grid-button">Camera grid</button><label for="camera-focus">Focus camera</label><select id="camera-focus"><option value="">All cameras</option></select></nav>
+      <nav aria-label="Live sound controls"><button id="live-listen" disabled aria-pressed="false">Audio OFF</button><label for="live-volume">Volume</label><input id="live-volume" type="range" min="0" max="100" value="100" disabled></nav>
+      <label class="check"><input id="live-audio-compatibility" type="checkbox" aria-describedby="live-audio-compatibility-help">Use lighter video while listening</label>
+      <p id="live-audio-compatibility-help" class="help">For choppy sound on slower devices. Uses up to 720p H.264 video and additional server processing. Saved for this browser; recordings and rewind keep their quality.</p>
+      <nav aria-label="Overlay appearance"><label for="overlay-transparency">Overlay transparency <output id="overlay-transparency-value" for="overlay-transparency">0%</output></label><input id="overlay-transparency" type="range" min="0" max="100" value="0" aria-valuetext="0% transparent"></nav>
+      <p id="live-sound-status" class="help" role="status">Use Audio OFF on a camera to turn sound on. Ctrl+click to keep other cameras audible.</p>
+      <nav aria-label="Screen controls"><button id="reset-layout">Reset camera layout</button><button id="keep-awake" aria-pressed="false" aria-describedby="wake-lock-status">Keep screen awake: Off</button></nav>
+      <nav aria-label="Recording controls"><button id="recording-settings">Motion &amp; recording settings</button><button id="detection-templates-open">Motion detection templates</button><button id="recordings">View recordings</button></nav>
+      <nav aria-label="Live rewind settings"><label class="check"><input id="rewind-enabled" type="checkbox">Enable live rewind buffer</label><label for="rewind-seconds">History (seconds)</label><input id="rewind-seconds" type="number" min="1" step="1" value="120"><label for="rewind-memory">Memory per camera (MiB)</label><input id="rewind-memory" type="number" min="1" step="1" value="128"><p id="rewind-settings-status" class="help" role="status">Enable the server buffer to rewind live pictures.</p></nav>
+      <label class="check"><input id="detection-overlays" type="checkbox" aria-describedby="detection-overlay-status">Show detection overlays</label>
+      <label class="check"><input id="detection-overlay-metadata" type="checkbox" checked disabled aria-describedby="detection-overlay-status">Show detection metadata text</label>
+      <p id="detection-overlay-status" class="help" role="status">Detection overlays are off.</p>
+      <nav aria-label="Proprietary recorder"><a href="/nvr.html">NVR recordings (RaySharp)</a></nav>
+      <nav aria-label="Integrations"><button id="streaming-open">RTSP &amp; ONVIF service</button><button id="integrations-open">Integrations &amp; API</button><button id="auth-open">Sign in</button></nav>
+      <p id="recording-status" class="help" role="status">Recording is disabled.</p>
+      <p id="wake-lock-status" class="help" role="status">Allow the screen to sleep normally.</p>
+      <p id="layout-status" class="help" role="status">Camera layouts save separately at each screen-width breakpoint in this browser, per configuration. Reset restores the current breakpoint only.</p>
+      <p class="help">Drag dividers to resize a full bar; hold Ctrl for one segment. Nearby parallel lines highlight and snap together. Double-click a divider to realign it. Drag a picture onto another to swap. Focus a divider and use arrow keys to resize, or Enter to realign.</p>
+      <p id="notice" role="status">Loading your cameras…</p>
+      <p class="help">Double-click a picture to focus · Drag to zoom · Esc resets zoom, then returns to the grid</p>
+      <nav id="app-install-controls" aria-label="App installation" hidden><button id="install-app" type="button" hidden>Install app</button><p id="app-install-status" class="help" role="status" hidden></p></nav>
+      <p class="help">Created by <a href="https://plasticcheese.com" target="_blank" rel="noopener">Frank Tzanabetis</a></p>
+    </section>
+  </div>
+  <section id="cameras" class="cameras" aria-label="Camera grid" tabindex="-1"></section>
+  <div id="playback-overlay" class="playback-overlay" role="group" aria-label="Camera playback controls" tabindex="-1" hidden>
+    <div id="playback-tab-area" class="playback-tab-area">
+      <button id="playback-tab" type="button" aria-label="Open playback controls" aria-controls="playback-controls" aria-expanded="false" title="Open playback controls"><span aria-hidden="true"><svg class="playback-icon" focusable="false"><use href="#lucide-chevron-right"></use></svg></span></button>
+    </div>
+    <div id="playback-dock" class="playback-dock" hidden>
+      <span id="playback-compact-status" hidden></span>
+      <button id="playback-compact-live" type="button" title="Go live" aria-label="Go live" hidden><svg class="playback-icon" aria-hidden="true" focusable="false"><use href="#lucide-radio"></use></svg></button>
+    </div>
+    <section id="playback-controls" class="playback-controls" aria-label="Camera playback controls" aria-hidden="true" inert>
+      <div class="playback-buttons">
+        <button id="playback-back" type="button" title="Back 10 seconds" aria-label="Back 10 seconds"><svg class="playback-icon" aria-hidden="true" focusable="false"><use href="#lucide-rotate-ccw"></use></svg></button>
+        <button id="playback-reverse" type="button" title="Play backwards; press again to scan faster" aria-label="Play backwards; press again to scan faster" aria-pressed="false"><svg class="playback-icon reverse-play" aria-hidden="true" focusable="false"><use href="#lucide-play"></use></svg></button>
+        <button id="playback-pause" type="button" title="Pause playback" aria-label="Pause playback" aria-pressed="false"><svg class="playback-icon" aria-hidden="true" focusable="false"><use href="#lucide-pause"></use></svg></button>
+        <button id="playback-play" type="button" title="Play forwards; press again to play faster" aria-label="Play forwards; press again to play faster" aria-pressed="false"><svg class="playback-icon" aria-hidden="true" focusable="false"><use href="#lucide-play"></use></svg></button>
+        <button id="playback-forward" type="button" title="Forward 10 seconds" aria-label="Forward 10 seconds"><svg class="playback-icon" aria-hidden="true" focusable="false"><use href="#lucide-rotate-cw"></use></svg></button>
+        <label for="playback-speed">Speed ×</label><input id="playback-speed" type="number" step="any" value="1">
+        <button id="playback-slower" type="button" title="Slower: halve playback speed" aria-label="Slower: halve playback speed" aria-pressed="false"><svg class="playback-icon" aria-hidden="true" focusable="false"><use href="#lucide-snail"></use></svg></button>
+        <button id="playback-speed-0.5" type="button" title="0.5× speed in the current direction" aria-label="0.5× speed in the current direction" aria-pressed="false">0.5×</button>
+        <button id="playback-speed-1" type="button" title="1× speed in the current direction" aria-label="1× speed in the current direction" aria-pressed="false">1×</button>
+        <button id="playback-speed-2" type="button" title="2× speed in the current direction" aria-label="2× speed in the current direction" aria-pressed="false">2×</button>
+        <button id="playback-speed-4" type="button" title="4× speed in the current direction" aria-label="4× speed in the current direction" aria-pressed="false">4×</button>
+        <button id="playback-faster" type="button" title="Faster: double playback speed" aria-label="Faster: double playback speed" aria-pressed="false"><svg class="playback-icon" aria-hidden="true" focusable="false"><use href="#lucide-rabbit"></use></svg></button>
+        <button id="playback-live" type="button" title="Go live" aria-label="Go live"><svg class="playback-icon" aria-hidden="true" focusable="false"><use href="#lucide-radio"></use></svg></button>
+        <button id="playback-sound" type="button" title="Sound" aria-label="Sound" aria-pressed="false" hidden><svg class="playback-icon sound-on" aria-hidden="true" focusable="false"><use href="#lucide-volume-2"></use></svg><svg class="playback-icon sound-off" aria-hidden="true" focusable="false"><use href="#lucide-volume-x"></use></svg></button>
+        <button id="playback-save" type="button" aria-label="Save video" aria-describedby="playback-save-status" title="Save video from this playback time" disabled>Save video</button>
+        <button id="playback-save-cancel" type="button" hidden>Cancel selection</button>
+        <span id="playback-save-status" role="status" hidden></span>
+        <span id="playback-status" role="status">Filling rewind buffer…</span>
+        <button id="playback-pin" type="button" title="Keep playback controls open" aria-label="Pin playback controls" aria-pressed="false"><svg class="playback-icon pin" aria-hidden="true" focusable="false"><use href="#lucide-pin"></use></svg><svg class="playback-icon unpin" aria-hidden="true" focusable="false"><use href="#lucide-pin-off"></use></svg></button>
+      </div>
+      <label class="visually-hidden" for="playback-position">Playback time</label><input id="playback-position" type="range" min="0" max="0" step="100" value="0">
+    </section>
+  </div>
+</main>
+<dialog id="connection-dialog" aria-labelledby="dialog-title">
+  <form id="connection-form">
+    <div class="dialog-heading"><div><h2 id="dialog-title">Recorder connection</h2><p class="muted">Connect directly to your recorder on the local network.</p></div><button type="button" id="close-dialog" aria-label="Close connection dialog">×</button></div>
+    <div class="form-scroll">
+      <div class="form-row address-row"><label>Recorder address<input name="host" required autocomplete="off" maxlength="253"></label><label>RTSP port<input name="rtspPort" type="number" min="1" max="65535" required></label></div>
+      <p class="help">Usually 554. Port 9000 is used by RXCamView's separate client service.</p>
+      <div class="form-row"><label>Username<input name="username" autocomplete="off" maxlength="256"></label><label>Password<input name="password" type="password" autocomplete="new-password" maxlength="4096" placeholder="Enter recorder password"></label></div>
+      <label class="check"><input type="checkbox" name="clearPassword">Clear the current password (for a recorder without a password)</label>
+      <label>Stream path template<input name="pathTemplate" required maxlength="2048"></label>
+      <div class="presets"><button type="button" data-path="/ip{channel:00}/{stream}">NVR: /ip01/0</button><button type="button" data-path="/ch{channel:00}/{stream}">DVR: /ch01/0</button></div>
+      <p class="help">Use {channel:00} for 01, 02…; {channel} for 1, 2…; {channel0} for 0, 1…; {stream} for main (0) or substream (1).</p>
+      <label>Number of cameras<input name="channelCount" type="number" min="1" required></label>
+      <label>Camera names (one per line, in channel order)<textarea name="cameraNames" rows="4" maxlength="4096"></textarea></label>
+      <label class="check"><input name="substream" type="checkbox">Use lower-bandwidth substreams</label>
+      <label class="check"><input name="autoConnect" type="checkbox">Connect automatically when the server starts</label>
+      <p class="help">Connection settings and passwords are saved on the server and restored after restart.</p>
+      <p class="help">All open browsers share the connection and quality controls. Video is silent, up to 10 frames per second at 1280 × 720.</p>
+    </div>
+    <p id="form-result" role="status"></p>
+    <div class="dialog-actions"><button type="button" id="test">Test connection</button><button type="button" id="cancel">Cancel</button><button type="submit" class="primary">Save and connect</button></div>
+  </form>
+</dialog>
+<dialog id="motion-help-dialog" class="recording-dialog" aria-labelledby="motion-help-title">
+  <div class="dialog-heading"><h2 id="motion-help-title">Motion detection guide</h2><button type="button" data-close="motion-help-dialog" aria-label="Close motion detection guide">×</button></div>
+  <div id="motion-help-content" class="motion-help-content"><p>Loading configuration guide…</p><p><a href="motion-guide.html" target="_blank" rel="noopener noreferrer">Open the guide in a separate tab</a></p></div>
+</dialog>
+<dialog id="recording-dialog" class="recording-dialog" aria-labelledby="recording-title">
+  <form id="recording-form">
+    <div class="dialog-heading"><div><h2 id="recording-title">Motion &amp; recording</h2><p class="muted">Record events, continuously, or whenever a motion-activated camera transmits video. Recordings include available audio.</p></div><div class="dialog-heading-actions"><button type="button" id="motion-help" class="help-icon" aria-label="Motion detection configuration help" title="Motion detection configuration help">?</button><button type="button" data-close="recording-dialog" aria-label="Close recording settings">×</button></div></div>
+    <div class="form-scroll recording-fields">
+      <label class="check"><input name="enabled" type="checkbox">Enable recording &amp; motion actions</label>
+      <p class="help">Runs while the server is on, even with browsers closed or live viewing disconnected.</p>
+      <fieldset>
+        <legend>Recording storage</legend>
+        <div class="form-row"><label>Recording folder on the server<input name="directory" required maxlength="2048"></label><label>Maximum storage (GB)<input name="maximumStorageGigabytes" type="number" min="0.000000001" step="any" required></label></div>
+        <div class="form-row"><p class="help" id="recording-primary-status"></p><div id="recording-primary-actions"></div></div>
+        <div id="recording-mirror-list"></div>
+        <button type="button" id="recording-mirror-add">Add folder</button>
+        <p class="help">Create each folder on its mounted drive before adding it. Each drive keeps its own copy and storage limit.</p>
+        <p class="help" id="recording-failover-status" role="status"></p>
+        <label>Keep recordings for (days, 0 = no age limit)<input name="retentionDays" type="number" min="0" max="365" required></label>
+        <p class="help">The oldest unprotected recordings expire first. Protected recordings count toward each limit.</p>
+      </fieldset>
+      <label>Recording schedule timezone<input name="timeZoneId" required maxlength="128" placeholder="Australia/Brisbane"></label>
+      <button type="button" id="schedule-local-timezone">Use this browser's timezone</button>
+      <p class="help">Changing folders leaves existing recordings in the old folder. Select that folder again to browse them.</p>
+      <div class="form-row"><label>Pre-event seconds<input name="preCaptureSeconds" type="number" min="0" max="60" required></label><label>Seconds after last motion<input name="postCaptureSeconds" type="number" min="1" max="120" required></label></div>
+      <div class="form-row"><label>Maximum clip length (seconds)<input name="maximumEventSeconds" type="number" min="60" max="3600" required></label><label>RAM buffer per camera (MB)<input name="bufferMegabytesPerCamera" type="number" min="8" max="128" required></label></div>
+      <p class="help">Long activity is split into bounded clips. Pre/post-event buffering applies to Event mode. Continuous and available-video modes create consecutive segments without a RAM pre-event buffer. Pre-event coverage depends on bitrate and camera keyframes. The RAM limit excludes decoder and working buffers.</p>
+      <fieldset><legend>Reusable actions</legend>
+        <p class="help">Define actions once and select them for cameras or zones. Record is the default. Actions run independently.</p>
+        <div id="motion-action-list"></div>
+        <button type="button" id="motion-action-add">Add action</button>
+      </fieldset>
+      <div id="recording-camera-tabs" class="recording-camera-tabs" role="tablist" aria-label="Camera recording and detection"></div>
+      <p id="recording-no-cameras" class="help" hidden>No cameras are enabled. Enable a camera in Cameras &amp; Configurations to edit its motion and recording settings. Saved camera rules are preserved.</p>
+      <div id="recording-camera-panel" role="tabpanel" tabindex="0">
+      <fieldset id="recording-camera-settings"><legend>Camera recording and detection</legend>
+        <label>Recording mode<select id="camera-recording-mode"><option value="event">Events (motion or external trigger)</option><option value="continuous">Continuous</option><option value="available-video">Record whenever video is available</option></select></label>
+        <label id="continuous-detection-label" class="check" hidden><input id="continuous-detection" type="checkbox">Detect motion during continuous recording (markers and webhooks)</label>
+        <p class="help" id="stream-record-help">For motion-activated cameras. Records activity without waiting for software motion detection. No pre-event footage is available while the camera sleeps. Motion zones and their actions are not used in this mode.</p>
+        <div id="stream-schedule-panel" hidden><h3>Recording schedule</h3><p class="help">No rules means all day, every day. Uses the recording timezone above; temporary arming overrides still apply.</p><div id="stream-schedules"></div><button type="button" id="stream-schedule-add">Add weekly schedule</button></div>
+        <label class="check"><input id="camera-recording-enabled" type="checkbox">Enable recording / detection on this camera</label>
+        <p id="motion-meter" class="help" role="status"></p>
+        <fieldset id="software-motion-settings"><legend>Detection and actions</legend>
+        <label>Default detection template<select id="camera-detection-template"></select></label>
+        <a id="camera-detection-template-edit" class="template-edit-link" href="#detection-template-dialog">Edit this template</a>
+        <p class="help">Inclusion zones inherit this template unless they select another. Use Edit this template to open its settings. Your recording edits stay here until you save them.</p>
+        <fieldset><legend>Camera default actions</legend>
+          <div id="camera-default-actions" class="action-options"></div>
+          <p class="help">Used by zones that inherit defaults, and by the whole picture when there are no inclusion zones. Clear every action to detect without recording or sending webhooks.</p>
+        </fieldset>
+        <label class="check"><input id="detection-substream" type="checkbox">Use substream for motion analysis</label>
+        <p class="help">Recordings always use the main stream. Clear this if the camera has no working substream.</p>
+        <div class="zone-toolbar"><label>Shape<select id="zone-shape"><option value="rectangle">Rectangle</option><option value="polygon">Freeform polygon</option></select></label><label>Purpose<select id="zone-purpose"><option value="include">Detect inside</option><option value="exclude">Ignore inside</option></select></label><button type="button" id="zone-refresh">Refresh picture</button></div>
+        <p id="zone-help" class="help">Drag to draw a rectangle. Add several zones if needed. With no inclusion zones, the whole picture is monitored; exclusions always win.</p>
+        <canvas id="zone-canvas" width="640" height="360" tabindex="0" aria-label="Motion zone editor. Drag rectangles or click polygon vertices. Enter finishes a polygon, Escape cancels it."></canvas>
+        <p id="zone-preview-status" class="help" role="status"></p>
+        <div class="zone-toolbar"><button type="button" id="zone-finish">Finish polygon</button><button type="button" id="zone-undo">Undo vertex</button><button type="button" id="zone-cancel">Cancel drawing</button></div>
+        <ol id="zone-list" aria-label="Detection zones"></ol>
+        <p class="help">Up to 32 rectangles/polygons per camera, 64 vertices per polygon. Use Remove to replace a zone. Green areas detect; red areas ignore motion. Changes apply when you save.</p>
+        <p class="help">Name each zone and add weekly schedule entries below it. New zones run all day, every day. End times are exclusive; Friday 22:00–06:00 ends on Saturday morning. If no inclusion zone is active, detection pauses. An event already recording keeps its post-event tail.</p>
+        </fieldset>
+      </fieldset>
+      </div>
+      <p id="detector-name" class="help"></p>
+      <p class="help">Motion detects changing pixels, including weather and shadows. Tune camera zones and choose detection templates for each scene. Recordings include available camera audio. Choose Listen on any camera for live sound. Ctrl+click Listen to keep other cameras audible.</p>
+    </div>
+    <p id="recording-result" role="status"></p>
+    <div class="dialog-actions"><button type="button" data-close="recording-dialog">Cancel</button><button type="submit" class="primary">Save recording settings</button></div>
+  </form>
+</dialog>
+<dialog id="detection-template-dialog" class="recording-dialog" aria-labelledby="detection-template-title">
+  <form id="detection-template-form">
+    <div class="dialog-heading"><h2 id="detection-template-title">Motion detection template settings</h2><button id="detection-template-close" type="button" aria-label="Close template settings">×</button></div>
+    <div class="recording-fields">
+      <fieldset id="detection-templates-section"><legend>Detection templates</legend>
+        <p class="help">Create named templates once, then assign them to cameras or inclusion zones. Editing a shared template changes every assignment when you save templates.</p>
+        <div class="form-row"><label>Detection template<select id="detection-template-select"></select></label><label>Template name<input id="detection-template-name" required maxlength="80"></label></div>
+        <div class="zone-toolbar"><button id="detection-template-add" type="button">New template</button><button id="detection-template-clone" type="button">Duplicate template</button><button id="detection-template-delete" type="button">Remove unused template</button></div>
+        <div class="form-row"><label>Starter template<select id="detection-template-starter"></select></label><button id="detection-template-install" type="button">Install starter template</button></div>
+        <p class="help">Starters are adjustable starting points. Test them on your footage before relying on their filters.</p>
+        <div class="zone-toolbar"><button id="detection-template-export" type="button">Export selected template</button><button id="detection-template-export-all" type="button">Export all templates</button><label>Import templates<input id="detection-template-import" type="file" accept=".json,application/json"></label></div>
+        <p id="detection-template-file-status" class="help" role="status"></p>
+        <p class="help">Import adds new templates without replacing assignments. JSON files contain detection policy only, and can be reused with other camera configurations. Save templates to apply changes. Choose assignments separately in Motion &amp; recording.</p>
+        <p id="detection-template-usage" class="help" role="status"></p>
+        <fieldset id="detection-template-editor"><legend>Template settings</legend>
+        <label>Detection method<select id="detection-method"></select></label>
+        <p class="help" id="detection-method-help"></p>
+        <div id="ai-detection-settings" hidden>
+          <label>Local AI model<select id="ai-model"></select></label>
+          <p id="ai-model-help" class="help"></p>
+          <button id="ai-model-refresh" type="button">Refresh models</button>
+          <p id="ai-model-notices" class="help" role="status"></p>
+          <label>Model settings preset<select id="ai-model-preset"></select></label>
+          <div class="form-row"><label>AI processing<select id="ai-device"><option value="cpu">CPU</option><option value="gpu">Intel GPU (OpenVINO)</option><option value="auto">Automatic (GPU, then CPU)</option></select></label></div>
+          <p id="ai-device-help" class="help"></p>
+          <div id="ai-model-options" class="form-row"></div>
+          <fieldset><legend>Object rules</legend><label>Filter supported objects<input id="ai-class-search" type="search" placeholder="For example, person, cat or car"></label><div id="ai-classes" class="ai-object-rules"></div><p id="ai-rule-status" class="help" role="status"></p></fieldset>
+          <p class="help">Trigger objects start or extend automatic zone actions. Ignore objects can appear in live overlays but never trigger actions; a triggering person can still record beside an ignored animal. No action omits that class. These rules apply to AI and hybrid detection. Pixel-only motion cannot classify objects.</p>
+        </div>
+        <div id="adaptive-detection-settings">
+          <div class="form-row"><label>Sensitivity (1–100)<input id="motion-sensitivity" type="number" min="1" max="100" required></label><label>Minimum moving area (%)<input id="motion-area" type="number" min="0.1" max="50" step="0.1" required></label></div>
+        </div>
+        <div id="motion-gate-settings" hidden>
+          <div class="form-row"><label>Motion gate sensitivity (1–100)<input id="motion-gate-sensitivity" type="number" min="1" max="100" value="80"></label><label>Motion gate minimum area (%)<input id="motion-gate-area" type="number" min="0.1" max="50" step="0.1" value="0.1"></label></div>
+          <p class="help">A permissive gate lets AI check small movements. AI confirms objects in the same active zone. Checks continue for three seconds after motion stops.</p>
+        </div>
+        <div class="form-row"><label>Analysis resolution<select id="analysis-width"><option value="320">320 × 180 (lowest motion load)</option><option value="640">640 × 360</option><option value="960">960 × 540 (more distant detail)</option></select></label><label>Analysis frames per second<input id="analysis-rate" type="number" min="1" max="10" step="0.5" value="5" required></label></div>
+        <p class="help">Higher resolution costs more processing. AI modes use at least 640 × 360 colour frames. The model also resizes its input; a higher source resolution cannot guarantee distant detections.</p>
+        <details id="adaptive-options"><summary>Adaptive noise, lighting and diagnostics</summary>
+          <label class="check"><input id="adaptive-learn-noise" type="checkbox">Learn normal background variation</label>
+          <label>Noise allowance (standard deviations)<input id="adaptive-noise-allowance" type="number" min="1" max="6" step="0.5" value="3"></label>
+          <p class="help">Learns bounded local variation during warmup and from background pixels. Can reduce vegetation flicker; test that small distant subjects still qualify.</p>
+          <label class="check"><input id="adaptive-smooth" type="checkbox">Light smoothing for compression artifacts</label>
+          <p class="help">Averages nearby monitored pixels. Excluded timestamps do not bleed into detection. Smoothing can reduce very small subjects.</p>
+          <div class="form-row"><label>Region persistence (frames)<input id="adaptive-persistence" type="number" min="1" max="10" value="1"></label><label>Motion confirmation (frames)<input id="adaptive-confirmation" type="number" min="1" max="10" value="3"></label></div>
+          <p class="help">Persistence requires a region to recur nearby; 1 disables this filter. Confirmation then requires consecutive frames above the moving-area threshold. Both add delay at lower analysis rates.</p>
+          <label>Lighting compensation<select id="adaptive-illumination"><option value="mean">Average brightness shift (existing)</option><option value="robust">Robust brightness and contrast</option></select></label>
+          <label class="check"><input id="adaptive-shadows" type="checkbox">Suppress likely shadows using colour</label>
+          <div class="form-row"><label>Minimum shadow brightness ratio<input id="adaptive-shadow-ratio" type="number" min="0.3" max="0.95" step="0.05" value="0.6"></label><label>Shadow colour tolerance<input id="adaptive-shadow-tolerance" type="number" min="0.01" max="0.3" step="0.01" value="0.08"></label></div>
+          <p class="help">Uses colour analysis and rejects moderate darkening with similar colour. Dark objects with similar colour can also be rejected; test on your footage. Colour processing adds load.</p>
+          <label>Minimum candidate display size (analysis pixels)<input id="adaptive-candidate-pixels" type="number" min="4" max="10000" value="4"></label>
+          <p class="help">Only filters overlay boxes. It does not change motion detection, recording or the hybrid gate.</p>
+          <label class="check"><input id="adaptive-diagnostics" type="checkbox">Include threshold, confirmation and lighting diagnostics</label>
+        </details>
+        </fieldset>
+      </fieldset>
+    </div>
+    <p id="detection-template-result" role="status"></p>
+    <div class="dialog-actions"><button id="detection-template-cancel" type="button">Cancel</button><button type="submit" class="primary">Save templates</button></div>
+  </form>
+</dialog>
+<dialog id="recordings-dialog" class="recordings-dialog" aria-labelledby="recordings-title">
+  <div class="dialog-heading"><div><h2 id="recordings-title">Recordings</h2><p id="recordings-storage" class="muted"></p></div><button type="button" data-close="recordings-dialog" aria-label="Close recordings">×</button></div>
+  <div class="recordings-layout">
+    <section class="recording-player-column" aria-label="Recording playback">
+      <div class="recording-filters">
+        <label>Camera<select id="recordings-camera"><option value="">All cameras</option></select></label>
+        <label>Date (local time)<input id="recordings-date" type="date"></label>
+        <label class="check"><input id="recordings-replay-only" type="checkbox">Saved live replay only</label>
+        <details id="recordings-zone-picker" class="recording-zone-picker">
+          <summary id="recordings-zone-summary">Triggered zones: All</summary>
+          <div class="recording-zone-panel"><p class="help">Match any checked zone. Camera and Date also apply. No checked zones means all zones.</p><div id="recordings-zone-tree"></div></div>
+        </details>
+        <label class="recording-saved-filter">Saved filters<select id="recordings-saved-filter"><option value="">Choose a saved filter</option></select></label>
+        <div class="recording-filter-actions"><button id="recordings-save-filter" type="button">Save filter…</button><button id="recordings-clear" type="button">Clear all filters</button><button id="recordings-refresh" type="button">Refresh</button></div>
+      </div>
+      <p id="recordings-result" role="status"></p>
+      <section id="recording-timeline-panel" hidden aria-label="Recording coverage"><p class="help">Recorded coverage for the selected camera and date. Empty areas have no footage. Select a segment to play.</p><div id="recording-timeline" class="recording-timeline"></div><p id="recording-timeline-status" class="help" role="status"></p></section>
+      <section id="recording-player-panel" hidden><video id="recording-player" controls playsinline preload="metadata"></video><p id="recording-player-title"></p><label class="check"><input id="recording-play-next" type="checkbox" checked>Continue through consecutive segments</label><div id="recording-markers" class="event-actions" aria-label="Activity markers"></div><p id="recording-player-help" class="help">If this browser cannot play the camera codec, download the MP4 and open it in a compatible player.</p></section>
+    </section>
+    <section class="recording-list-column" aria-label="Recorded footage">
+      <div id="recording-list"></div>
+      <button type="button" id="recordings-more" hidden>Load older recordings</button>
+    </section>
+  </div>
+</dialog>
+<dialog id="recordings-filter-save-dialog" class="recording-filter-save-dialog" aria-labelledby="recordings-filter-save-title">
+  <form id="recordings-filter-form">
+    <div class="dialog-heading"><h2 id="recordings-filter-save-title">Save recording filter</h2><button type="button" data-close="recordings-filter-save-dialog" aria-label="Close save filter">×</button></div>
+    <p class="help">Save the current Camera, Date and triggered zone selections.</p>
+    <label>Save as<select id="recordings-save-target"><option value="">Create a new filter</option></select></label>
+    <label id="recordings-filter-name-label">New filter name<input id="recordings-filter-name" maxlength="80" required autocomplete="off"></label>
+    <p id="recordings-filter-save-result" role="status"></p>
+    <div class="dialog-actions"><button type="button" data-close="recordings-filter-save-dialog">Cancel</button><button type="submit" class="primary">Save filter</button></div>
+  </form>
+</dialog>
+<dialog id="auth-dialog" aria-labelledby="auth-title">
+  <form id="auth-form"><div class="dialog-heading"><h2 id="auth-title">Sign in</h2><button type="button" data-close="auth-dialog" aria-label="Close sign in">×</button></div>
+    <p>Use an administrator token to manage the viewer. API tokens stay on the server; this browser receives a temporary session cookie.</p>
+    <label>API token<input id="auth-token" type="password" autocomplete="off" required maxlength="256"></label>
+    <p id="auth-result" role="status"></p><div class="dialog-actions"><button type="submit" class="primary">Sign in</button><button type="button" id="auth-logout">Sign out</button></div>
+  </form>
+</dialog>
+<dialog id="integrations-dialog" class="recording-dialog" aria-labelledby="integrations-title">
+  <div class="dialog-heading"><div><h2 id="integrations-title">Integrations &amp; API</h2><p class="muted">Home Assistant and other local automation systems.</p></div><button type="button" data-close="integrations-dialog" aria-label="Close integrations">×</button></div>
+  <div class="form-scroll integration-fields">
+    <section id="integration-setup"><p>Enable scoped API tokens and require browser sign-in. This browser will be signed in automatically. Save the administrator token shown next to sign in on other devices.</p><button id="integration-enable" class="primary">Enable integrations &amp; sign-in</button></section>
+    <section id="integration-secret-panel" hidden><label>Save this secret now<textarea id="integration-secret" rows="3" readonly spellcheck="false"></textarea></label><p class="help">Keep this private. Tokens cannot be displayed again. Webhook signing secrets can be rotated.</p><button id="integration-copy">Copy secret</button><button id="integration-secret-dismiss">I've saved it</button></section>
+    <div id="integration-config" hidden>
+      <p>API base: <code id="integration-base"></code>. <a href="/api/v1/openapi.json" target="_blank" rel="noopener">OpenAPI specification</a> · <a href="/integration-guide.html" target="_blank" rel="noopener">Setup and Home Assistant examples</a></p>
+      <fieldset><legend>API tokens</legend><form id="integration-token-form">
+        <label>Token name<input id="integration-token-name" required maxlength="80" placeholder="Home Assistant"></label>
+        <div id="integration-scopes" class="integration-checks"></div>
+        <label>Expiry (optional, local time)<input id="integration-token-expiry" type="datetime-local"></label>
+        <button type="submit">Create token</button>
+      </form><div id="integration-token-list"></div></fieldset>
+      <fieldset><legend>Outgoing webhooks</legend><p class="help">Paste a Home Assistant webhook URL or another HTTP(S) receiver. HTTP is suitable only for a trusted local network. URLs may contain secrets and are visible only to administrators.</p>
+        <div id="integration-hook-list"></div><button id="integration-hook-new">New webhook</button>
+        <form id="integration-hook-form">
+          <input id="integration-hook-id" type="hidden"><label>Name<input id="integration-hook-name" required maxlength="80"></label>
+          <label>Destination URL<input id="integration-hook-url" type="url" required maxlength="2048" placeholder="http://homeassistant.local:8123/api/webhook/your-secret-id" autocomplete="off"></label>
+          <label class="check"><input id="integration-hook-enabled" type="checkbox" checked>Enable delivery</label>
+          <div id="integration-events" class="integration-checks"></div>
+          <label>Cameras (leave empty for all)<select id="integration-hook-cameras" multiple size="4"></select></label>
+          <label>Zones (leave empty for all)<select id="integration-hook-zones" multiple size="5"></select></label>
+          <p class="help">Camera and zone filters both apply. Storage events have no camera or zones. Zone filters only match events with zone information.</p>
+          <label>Cooldown per event type, camera and zone (seconds)<input id="integration-hook-cooldown" type="number" min="0" max="3600" value="2" required></label>
+          <label class="check"><input id="integration-hook-rotate" type="checkbox">Rotate signing secret when saving</label>
+          <button type="submit">Save webhook</button>
+        </form>
+      </fieldset>
+      <fieldset><legend>Delivery queue</legend><p id="integration-queue-status" role="status"></p><button id="integration-refresh">Refresh deliveries</button><div id="integration-deliveries"></div></fieldset>
+      <fieldset><legend>Camera automation controls</legend>
+        <label>Camera<select id="integration-camera"></select></label><p id="integration-camera-state"></p>
+        <form id="integration-arming-form"><label>Arming mode<select id="integration-arming-mode"><option value="schedule">Use zone schedules</option><option value="armed">Arm all zones temporarily</option><option value="disarmed">Disarm temporarily</option></select></label>
+          <label>Override duration (minutes, up to seven days)<input id="integration-arming-minutes" type="number" min="1" max="10080" value="60" required></label><button type="submit">Apply arming</button></form>
+        <form id="integration-trigger-form"><label>Recording duration (seconds)<input id="integration-trigger-seconds" type="number" min="1" max="3600" value="20" required></label><label>Reason<input id="integration-trigger-reason" value="Manual recording" required maxlength="256"></label>
+          <label class="check"><input id="integration-trigger-override" type="checkbox">Override zone schedule and temporary disarming for this trigger</label><button type="submit">Trigger recording</button></form>
+        <p class="help">Recording must be enabled and the camera buffer ready. Temporary arming keeps zone shapes and exclusions, then resumes weekly schedules at expiry.</p>
+      </fieldset>
+    </div>
+  </div><p id="integration-result" role="status"></p>
+</dialog>
+<dialog id="streaming-dialog" class="camera-setup" aria-labelledby="streaming-title">
+  <form id="streaming-form">
+    <div class="dialog-heading"><div><h2 id="streaming-title">RTSP &amp; ONVIF service</h2><p class="muted">Share individual cameras with Android viewers, recorders and other clients through this server.</p></div><button type="button" data-close="streaming-dialog" aria-label="Close streaming settings">×</button></div>
+    <div class="form-scroll">
+      <p id="streaming-status" role="status"></p><p id="streaming-discovery-status" class="help" role="status"></p>
+      <label class="check"><input id="streaming-enabled" type="checkbox">Enable consolidated camera service</label>
+      <fieldset><legend>Server addresses</legend>
+        <div class="form-row"><label>Server LAN IP or hostname<input id="streaming-host" maxlength="253" placeholder="192.168.1.10"></label><label>RTSP port<input id="streaming-rtsp-port" type="number" min="1024" max="65535" required></label></div>
+        <label>ONVIF server base address<input id="streaming-base-url" type="url" placeholder="http://192.168.1.10:5080/" maxlength="2048"></label>
+        <p class="help">Use this server's reachable LAN address. ONVIF runs on the existing web server; include its port. Keep the trailing /. RTSP uses its own port.</p>
+      </fieldset>
+      <fieldset><legend>Client login</legend>
+        <div class="form-row"><label>Username<input id="streaming-username" autocomplete="off" maxlength="80" required></label><label>Set or replace password<input id="streaming-password" type="password" autocomplete="new-password" maxlength="256"></label></div>
+      <p id="streaming-password-help" class="help"></p>
+        <p class="help">Client usernames/passwords support ASCII letters, digits and these symbols: ! $ ( ) * + . ; &lt; = &gt; [ ] ^ _ - { } @ # &amp;. Spaces and other symbols are unsupported by the relay.</p>
+        <p class="help">Use this login in both RTSP and ONVIF clients. Camera passwords stay on the server. Changing the login restarts RTSP sessions. Protect the server data directory; client credentials must be stored privately for ONVIF and RTSP Digest support.</p>
+      </fieldset>
+      <fieldset><legend>ONVIF discovery</legend>
+        <label class="check"><input id="streaming-onvif-enabled" type="checkbox">Enable ONVIF</label>
+        <label class="check"><input id="streaming-discovery-enabled" type="checkbox">Advertise on the local network</label>
+        <label>Discover as<select id="streaming-discovery-mode"><option value="individual">Individual cameras (recommended for phone viewers)</option><option value="aggregate">One recorder with all cameras</option><option value="both">Both (clients may show duplicates)</option></select></label>
+        <p class="help">Discovery uses IPv4 multicast on UDP 3702. If discovery is blocked, add a camera using its ONVIF address below. Android apps that accept only a host and port may require the recorder endpoint or a manual RTSP URL.</p>
+      </fieldset>
+      <details><summary>Advanced relay settings</summary>
+        <label>MediaMTX executable<input id="streaming-executable" maxlength="2048" required></label>
+        <p class="help">Install MediaMTX beside the published server or provide its full path. See docs/streaming-service.md for the Windows and Linux setup commands.</p>
+        <label class="check"><input id="streaming-udp-enabled" type="checkbox">Allow RTP over UDP as well as RTSP over TCP</label>
+        <div class="form-row"><label>RTP UDP port<input id="streaming-rtp-port" type="number" min="1024" max="65535" required></label><label>RTCP UDP port<input id="streaming-rtcp-port" type="number" min="1024" max="65535" required></label><label>Local relay control port<input id="streaming-api-port" type="number" min="1024" max="65535" required></label></div>
+        <p class="help">UDP requires an even RTP port and the next port for RTCP, such as 8000 and 8001.</p>
+        <p class="help">The control port listens on localhost and requires an internal credential. Feeds start on demand, keep their original codecs and include audio when available.</p>
+      </details>
+      <details><summary>Profile metadata overrides</summary>
+        <p class="help">The service reads codec and resolution from camera metadata or FFprobe. Use an override when metadata is unavailable or incorrect, especially for motion-activated cameras, which are not polled. These values describe the stream; they do not change its encoding.</p>
+        <div id="streaming-profile-overrides"></div>
+      </details>
+      <fieldset><legend>Client connection addresses</legend><p class="help">Save and enable the service, then copy an address into your client. Select ONVIF for discovery/profiles or RTSP for direct playback. H.265 profiles use Media2; clients without Media2 can use their RTSP addresses.</p><div id="streaming-addresses"></div><button type="button" id="streaming-refresh">Refresh status</button><button type="button" id="streaming-refresh-media">Refresh media metadata</button></fieldset>
+      <p id="streaming-result" role="status"></p>
+    </div>
+    <div class="dialog-actions"><button type="button" data-close="streaming-dialog">Cancel</button><button type="submit" class="primary">Save service settings</button></div>
+  </form>
+</dialog>
+</body>
+</html>

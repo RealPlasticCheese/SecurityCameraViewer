@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Motion detection guide</title><link rel="stylesheet" href="app.css"></head>
+<body class="integration-guide"><article>
+<h1>Configure motion detection</h1>
+<p>Detection settings are saved in reusable templates assigned to cameras and inclusion zones. Save changes, wait for detection to settle, then walk through the area you want to monitor. Test in daylight and at night. Status uses saved settings, not unsaved edits.</p>
+<h2>Reusable detection templates</h2>
+<p>Open <strong>Motion detection templates</strong> in the hamburger menu, or use <strong>Edit this template</strong> beside a camera or inclusion-zone assignment to define named templates, independent of camera settings. Choose a camera's default template; each inclusion zone can inherit it or choose another. Exclusions apply to every assigned detector. Editing a shared template updates every assignment when you choose <strong>Save templates</strong>. Pending recording edits are preserved when you open, save or cancel the separate template form. Duplicate it for independent tuning.</p>
+<p>Install <strong>Outdoor foliage</strong>, <strong>Small distant subjects</strong> or <strong>Shadow reduction</strong> as starting points. Export the selected template or all templates to JSON; importing adds independent templates and preserves assignments. Files contain detection policy only. Use <strong>Save templates</strong> to apply template edits, and <strong>Save recording settings</strong> to apply camera and zone assignments.</p>
+<p>Optional adaptive filters learn bounded local variation, smooth compression noise, require nearby region persistence, compensate robustly for brightness/contrast, and suppress likely colour-preserving shadows. Shadow filtering needs colour and can reject similar-coloured dark objects; smoothing and persistence can miss small or brief subjects. Test actual subjects on your footage. Defaults retain existing behaviour. Candidate display size affects boxes only; diagnostics explain moving-area thresholds and confirmation progress. Hybrid motion gates use the same filters.</p>
+<h2>Choose a recording mode</h2>
+<p><strong>Events</strong> saves motion or external triggers with the RAM pre-event buffer and post-event tail. <strong>Continuous</strong> saves consecutive segments throughout the Recording schedule; detection defaults off. Enable <strong>Detect motion during continuous recording</strong> for timestamped activity markers and zone webhooks. Quiet scenes keep recording, and Record actions do not create duplicate footage. <strong>Record whenever video is available</strong> saves activity from motion-activated cameras without software detection.</p>
+<p>Maximum clip length controls segment size. All modes share the SQLite catalogue, MP4 files, protection and retention. Source video is copied without re-encoding; finalization reads and rewrites the clip to produce a seekable MP4. View recordings offers camera/date coverage, activity marker seeking and optional playback through consecutive segments. Back up the entire recording folder, including <code>archive.db</code>, with the server stopped before upgrading or rolling back. Older servers cannot discover the new archive layout.</p>
+<h2>Choose a detection method</h2>
+<ul>
+<li><strong>Adaptive background subtraction:</strong> detects changing pixels. Lowest analysis cost. It also reacts to weather, shadows, foliage and insects.</li>
+<li><strong>Adaptive background subtraction + AI:</strong> a permissive motion gate starts local object checks. Only selected objects in a zone with recent motion trigger that zone's actions. Checks continue for three seconds after motion stops. Recommended starting point for small servers.</li>
+<li><strong>AI object detection:</strong> checks for selected objects regularly, including stationary people and parked vehicles. Presence can keep recording active; maximum clip length still splits long events. This uses more inference work during quiet periods.</li>
+</ul>
+<p><strong>Hybrid AI cannot recover movement the motion gate misses.</strong> It confirms object presence in the same zone, rather than proving that the detected object caused the pixel change. A parked car and moving foliage in one zone can still trigger it. Smaller, well-placed zones help.</p>
+<h2>Pick up small or distant movement</h2>
+<ol>
+<li>Draw an inclusion zone around the distant area. Minimum moving area is calculated independently within each active zone after exclusions, so a small person can represent a larger percentage there.</li>
+<li>Try <strong>minimum moving area 0.1–0.3%</strong> and <strong>sensitivity about 80</strong>. Higher sensitivity detects smaller brightness changes; a lower minimum area accepts fewer changed pixels. Adjust one setting at a time.</li>
+<li>Try <strong>640 × 360</strong> analysis if detail is lost at 320 × 180. 960 × 540 costs still more. More pixels do not restore detail absent from the source stream.</li>
+<li>If the substream is blurry or heavily compressed, try the main stream. Recordings always use the main stream, regardless of the analysis selection.</li>
+</ol>
+<p>The default adaptive settings are sensitivity 60, minimum area 1%, 320 × 180 and five analysis frames per second. At full-frame 320 × 180, 1% means roughly 576 changed pixels; a distant child can occupy much less. Noise filtering rejects isolated changed pixels, a two-second warmup follows connection or active-zone changes, and three consecutive qualifying analysis frames confirm movement. At five frames per second this takes roughly half a second; a lower rate makes confirmation slower.</p>
+<h2>Reduce unwanted events</h2>
+<p>Exclude moving trees, busy roads, reflective surfaces and overlays. Tighten inclusion zones before raising minimum area. Raise minimum area or lower sensitivity gradually for pixel detection. In hybrid mode, keep the gate permissive and tune AI confidence and classes to reject irrelevant activity. Increasing confidence reduces false positives but can miss distant, obscured or poorly lit objects.</p>
+<h2>Zones, schedules and objects</h2>
+<p>Green zones include and red zones exclude. Exclusions always win. With no inclusion zones, the whole image is monitored. With inclusion zones configured but none scheduled active, detection pauses. Schedules use the recording timezone. AI assigns an object by its bounding-box centre; place zones accordingly. Cars do not automatically include trucks or buses.</p>
+<h2>Choose object rules and a preset</h2>
+<p>The selected model supplies the object list and numeric controls. The built-in models expose all 80 COCO classes, including cats, dogs, birds and other animals. Search the list, then choose <strong>Trigger</strong>, <strong>Ignore</strong> or <strong>No action</strong> for each type. Trigger objects can activate the zone's actions. Ignored objects appear in overlays but cannot start or extend an event. No action objects are omitted from overlays and actions. Select at least one Trigger or Ignore type.</p>
+<p>Ignoring is per object: an ignored dog alongside a triggering person does not stop the person from activating actions. These rules apply to AI and hybrid detection. Ordinary adaptive background subtraction cannot classify an animal or subtract its motion; use hybrid or AI mode to filter by object type.</p>
+<p>The default <strong>People and all vehicles</strong> preset triggers people, bicycles (pushbikes), cars, motorcycles, airplanes, buses, trains, trucks and boats. No types are ignored by default. New cameras use this selection. <strong>Original defaults (people and cars)</strong> remains available to restore the earlier person/car selection. Both presets use confidence 0.45, one AI check per second, CPU, duplicate suppression overlap 0.45 and maximum 300 decoded objects. Saved camera settings remain in place until you choose a preset or change the model; select People and all vehicles and save to expand an existing camera's rules. Editing rules or values selects Custom settings. Additional model descriptions can supply their own presets, supported labels, defaults and narrower numeric ranges.</p>
+<p>Confidence and frame rate are the main tuning controls. Duplicate suppression overlap controls how strongly overlapping boxes of the same class are merged: a lower value merges more. Maximum decoded objects limits the objects retained by the adapter; overlays show at most 64 AI objects, prioritising trigger objects. Increasing either limit does not improve the model's ability to see a distant animal.</p>
+<p>Record and webhook actions are selected separately. A zone can detect without recording if it has no Record action. Disarming suppresses automatic detection and AI work while RAM buffering continues. Available-video recording for battery cameras bypasses all software detectors and their zones.</p>
+<h2>Start conservatively on an Intel N150 with four cameras</h2>
+<p>Start with hybrid mode, YOLOX Nano, confidence 45%, one AI check per second, gate sensitivity 80 and gate area 0.1%. Enable AI on one camera first, then add cameras while watching CPU, memory, inference latency and recording health. The server runs one inference at a time across cameras, uses up to two CPU inference threads, keeps one waiting analysis frame per camera, and shares a small model cache. Camera decoding still adds load. Increasing analysis resolution and frame rate adds work even when the AI gate is closed.</p>
+<p>AI uses colour frames at least 640 × 360. YOLOX Nano/Tiny resize to a 416-square model input; YOLO26 Nano uses 640-square input. Small objects may remain difficult. YOLOX Nano has the lowest model computation in this list; validate accuracy with your actual footage.</p>
+<h2>Install local models</h2>
+<p>Models run locally. Camera footage is not sent to a cloud service. The model dropdown shows whether each file exists and displays the server's model folder. The default folder is <code>models</code> beside the server application; a server administrator can override it with <code>--ai-model-directory /absolute/path</code>. Copy trusted ONNX files there using these exact names:</p>
+<ul>
+<li><a href="https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_nano.onnx" target="_blank" rel="noopener noreferrer">YOLOX Nano: yolox_nano.onnx</a> — Apache-2.0.</li>
+<li><a href="https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_tiny.onnx" target="_blank" rel="noopener noreferrer">YOLOX Tiny: yolox_tiny.onnx</a> — Apache-2.0.</li>
+<li>YOLO26 Nano: <code>yolo26n.onnx</code> — use a fixed 640-square, batch-one COCO detection export from <a href="https://docs.ultralytics.com/modes/export/" target="_blank" rel="noopener noreferrer">Ultralytics</a>, with float32 input/output. Both raw 80-class output and end-to-end six-column detections are supported. AGPL-3.0 / Enterprise terms apply.</li>
+</ul>
+<p>The repository's <code>tools/install-ai-models.py</code> downloads the two official YOLOX files. It does not automatically download or install Ultralytics models. Choose <strong>Refresh models</strong> after adding or replacing files. Refresh reloads model descriptions and clears loaded model sessions; it preserves saved camera rules. A missing or incompatible model produces an analysis error and never silently switches to ordinary motion recording.</p>
+<h2>Add another compatible model</h2>
+<p>Place its ONNX file and a data-only <code>*.model.json</code> description in the server model folder, then choose Refresh models. The dropdown, object rules, numeric controls and presets are generated from that description. The model must match a supported adapter: <code>yolox</code>, <code>ultralytics-raw</code> or <code>ultralytics-end-to-end</code>; <code>ultralytics</code> also supports automatic output-layout detection. A different input format or model task needs a new adapter.</p>
+<p>This example uses a custom class order. Labels must exactly match the model's training/export indices. Use its actual input size and license:</p>
+<pre><code>{
+  "version": 1,
+  "id": "parcel-camera",
+  "name": "Parcel camera",
+  "fileName": "parcel.onnx",
+  "inputSize": 640,
+  "adapter": "ultralytics-raw",
+  "license": "Your model's license",
+  "labels": ["parcel", "cat", "person"],
+  "presets": [{
+    "id": "delivery",
+    "name": "Deliveries, ignore cats",
+    "triggerClasses": ["parcel", "person"],
+    "ignoreClasses": ["cat"],
+    "device": "cpu",
+    "options": { "confidence": 0.45, "framesPerSecond": 1 }
+  }]
+}</code></pre>
+<p>Omit labels and/or input size only if the ONNX file contains usable <code>names</code> and square <code>imgsz</code> metadata. Alternatively, <code>labelSet: "coco"</code> uses the standard ordered 80-class list. Discovery reads metadata without starting inference. Options omitted from the description use the supported defaults; presets omitted from a custom description generate an all-supported-objects preset. Unknown options, duplicate IDs and malformed descriptions produce notices while other models stay available. Built-in definitions cannot be overwritten.</p>
+<h2>CPU, GPU and Automatic</h2>
+<p><strong>CPU</strong> uses the included ONNX Runtime. <strong>Intel GPU</strong> uses the optional OpenVINO runtime and needs a supported Intel GPU driver. The dropdown reports devices available to this server process. If GPU is explicitly selected and unavailable or fails, analysis reports an error. <strong>Automatic</strong> tries the available Intel GPU and falls back to CPU; status shows the actual device and fallback.</p>
+<p>On Linux, install the OpenVINO runtime and Intel compute driver for your distribution, make the runtime libraries available to the server, and grant its service user access to the GPU render device (including container device mapping if applicable). Follow <a href="https://docs.openvino.ai/2026/get-started/install-openvino.html" target="_blank" rel="noopener noreferrer">Intel's installation guide</a>. Source the runtime's <code>setupvars.sh</code> when launching, or configure the equivalent environment for the service. <code>SCV_OPENVINO_LIBRARY</code> can point to the absolute <code>libopenvino_c.so</code> path if required. Restart the server after changing runtime or GPU drivers. Windows hosts can similarly use OpenVINO's environment setup and <code>openvino_c.dll</code>.</p>
+<h2>Check why a camera did not record</h2>
+<p>Turn on <strong>Show detection overlays</strong> in the viewer menu to inspect the existing detectors while watching live video. Use <strong>Show detection metadata text</strong> directly beneath it to show or hide labels and details while keeping the detection boxes visible. Motion boxes are amber; triggering AI object boxes are green. <strong>Ignored objects have dotted gray boxes and an Ignored label</strong>; their details explain that they cannot trigger actions. Dashed boxes are candidates: small pixel changes can be visible before the motion threshold/debounce qualifies, and hybrid motion regions are gate evidence until an object confirms the detection. Hover over a label, or tap/click it, for method, model, object/confidence, zones, processing device and timing where available. Close details with × or Escape.</p>
+<p>Moving area on a pixel box is that component's changed pixels as a percentage of the entire active monitored area after exclusions. Hybrid <em>changed area</em> evidence is the gate's qualifying zone score (or full-frame score when there are no inclusion zones). AI confidence is a model score, not a guarantee of accuracy. A confirmed box qualifies detection policy; its configured actions may still omit recording.</p>
+<p>Overlays are a browser display preference. They use the current detection workers, do not start additional inference, and require recording/motion actions and the camera to be enabled. Available-video recording has no software detection boxes. Labels expire, pause when the page is hidden or viewing is disconnected, and follow zoom/pan and letterboxing. Positions update at the configured detector rate and can lag live video because analysis and viewing use separate streams. Main/substreams must show the same field of view. Boxes are not burned into saved clips, and object identity is not tracked.</p>
+<ol>
+<li>Confirm recording and the camera are enabled, the zone is scheduled active, and its actions include Record.</li>
+<li>Wait for warmup and the RAM pre-event buffer. Inspect the live changed-area value for adaptive/hybrid detection.</li>
+<li>If changed area stays below the threshold, lower minimum area, adjust zones or increase source detail.</li>
+<li>For AI, check model installation, actual processing device, confidence and selected classes. In hybrid mode also check the motion gate.</li>
+<li>If clips are short or unavailable, check camera connection limits, stream/keyframe availability, free disk and RAM-buffer status. Higher AI rates cannot fix camera connection or storage failures.</li>
+</ol>
+</article></body></html>

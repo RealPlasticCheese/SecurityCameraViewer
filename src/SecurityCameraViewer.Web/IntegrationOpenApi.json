@@ -1,0 +1,1512 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Security Camera Viewer integration API",
+    "version": "1.0.0",
+    "description": "Enable Integrations in the viewer menu. Bearer tokens have read, trigger, control and/or admin scopes. Admin includes all scopes. Times are UTC ISO 8601. Camera IDs are stable across renaming and layout changes. Migrated cameras retain camera-1 style IDs; new sources use camera- followed by a UUID. Discover IDs through /cameras. Switching named configurations changes the active camera collection and recording library. Errors use {message}. Media requires authentication; do not put tokens in URLs."
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "DetectionObservation": {
+        "type": "object",
+        "description": "Live diagnostic observation, independent of model format. Geometry is normalized to the entire source picture; confidence exists only where supplied by evidence. Not stored in recordings.",
+        "properties": {
+          "bounds": {
+            "type": "object",
+            "properties": {
+              "x": { "type": "number", "minimum": 0, "maximum": 1 },
+              "y": { "type": "number", "minimum": 0, "maximum": 1 },
+              "width": { "type": "number", "minimum": 0, "maximum": 1 },
+              "height": { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+          },
+          "kind": { "type": "string", "description": "Currently motion or object; consumers should allow future kinds." },
+          "confirmed": { "type": "boolean", "description": "Qualifies the detector policy. Does not guarantee a Record action ran." },
+          "disposition": { "type": "string", "enum": ["trigger", "ignore"], "description": "Ignored objects remain visible but never qualify actions or suppress other objects." },
+          "capturedAt": { "type": "string", "format": "date-time" },
+          "expiresAt": { "type": "string", "format": "date-time" },
+          "zones": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "name": { "type": "string" } } } },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "method": { "type": "string" },
+                "model": { "type": "string", "nullable": true },
+                "capturedAt": { "type": "string", "format": "date-time" },
+                "attributes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "description": "Named text or numeric value, with an optional unit. ratio is displayed as a percentage; other units include %, px and ms. Consumers may render unknown names/units.",
+                    "properties": {
+                      "name": { "type": "string" },
+                      "text": { "type": "string", "nullable": true },
+                      "number": { "type": "number", "nullable": true },
+                      "unit": { "type": "string", "nullable": true }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "TriggerRequest": {
+        "type": "object",
+        "description": "Event mode saves pre/post-event footage. A trigger admitted while continuous or available-video capture is active adds a timestamped marker to that segment; its duration does not extend the recording schedule.",
+        "required": [
+          "cameraId",
+          "source",
+          "reason"
+        ],
+        "properties": {
+          "cameraId": {
+            "type": "string",
+            "example": "camera-1"
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "durationSeconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3600,
+            "default": 20
+          },
+          "overrideSchedule": {
+            "type": "boolean",
+            "default": false,
+            "description": "Requires control scope in addition to trigger."
+          },
+          "zoneIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32
+          }
+        }
+      },
+      "ArmingOverride": {
+        "type": "object",
+        "required": [
+          "mode"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "schedule",
+              "armed",
+              "disarmed"
+            ]
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Required for armed/disarmed, maximum seven days ahead."
+          }
+        }
+      },
+      "ProtectionRequest": {
+        "type": "object",
+        "required": [
+          "protected"
+        ],
+        "properties": {
+          "protected": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Point": {
+        "type": "object",
+        "required": [
+          "x",
+          "y"
+        ],
+        "properties": {
+          "x": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "y": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
+      "ZoneTimeRange": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "string",
+            "example": "22:00"
+          },
+          "end": {
+            "type": "string",
+            "example": "06:00"
+          },
+          "days": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 6
+            }
+          },
+          "allDay": {
+            "type": "boolean"
+          }
+        },
+        "description": "Sunday=0. Null days means every day. Empty times means 24/7. Overnight ranges belong to their starting day; end is exclusive."
+      },
+      "MotionZone": {
+        "type": "object",
+        "properties": {
+          "detectionTemplateId": { "type": "string", "nullable": true, "description": "Omitted/null inherits the camera template. Inclusion zones only; exclusions apply to every assigned template." },
+          "id": {
+            "type": "string",
+            "description": "Stable 32-character hexadecimal UUID. Omit for a new zone; retain when editing."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "width": {
+            "type": "number"
+          },
+          "height": {
+            "type": "number"
+          },
+          "exclude": {
+            "type": "boolean"
+          },
+          "points": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "$ref": "#/components/schemas/Point"
+            }
+          },
+          "times": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "$ref": "#/components/schemas/ZoneTimeRange"
+            }
+          },
+          "actionIds": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "description": "Omitted/null inherits camera defaultActionIds. Empty array means no actions. Exclusion zones cannot select actions."
+          }
+        }
+      },
+      "AdaptiveMotionSettings": {
+        "type": "object",
+        "properties": {
+          "learnNoise": { "type": "boolean", "default": false },
+          "noiseAllowance": { "type": "number", "minimum": 1, "maximum": 6, "default": 3 },
+          "smoothFrames": { "type": "boolean", "default": false },
+          "regionPersistenceFrames": { "type": "integer", "minimum": 1, "maximum": 10, "default": 1 },
+          "confirmationFrames": { "type": "integer", "minimum": 1, "maximum": 10, "default": 3 },
+          "illuminationCompensation": { "type": "string", "enum": ["mean", "robust"], "default": "mean" },
+          "suppressShadows": { "type": "boolean", "default": false },
+          "shadowMinimumBrightnessRatio": { "type": "number", "minimum": 0.3, "maximum": 0.95, "default": 0.6 },
+          "shadowColorTolerance": { "type": "number", "minimum": 0.01, "maximum": 0.3, "default": 0.08 },
+          "candidateMinimumPixels": { "type": "integer", "minimum": 4, "maximum": 10000, "default": 4, "description": "Overlay display filter only; does not change motion qualification." },
+          "includeDiagnostics": { "type": "boolean", "default": false }
+        }
+      },
+      "DetectionSettings": {
+        "type": "object",
+        "properties": {
+          "detectionMethod": {
+            "type": "string",
+            "enum": [
+              "adaptive",
+              "adaptive-ai",
+              "ai"
+            ],
+            "default": "adaptive"
+          },
+          "analysisWidth": {
+            "type": "integer",
+            "enum": [
+              320,
+              640,
+              960
+            ],
+            "default": 320
+          },
+          "analysisFramesPerSecond": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 10,
+            "default": 5
+          },
+          "aiModel": {
+            "type": "string",
+            "maxLength": 80,
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "default": "yolox-nano",
+            "description": "Registered model ID. Administrator catalogue: GET /api/recording/detection. Compatible custom models are discovered from *.model.json descriptions."
+          },
+          "aiDevice": {
+            "type": "string",
+            "enum": [
+              "cpu",
+              "gpu",
+              "auto"
+            ],
+            "default": "cpu"
+          },
+          "aiFramesPerSecond": {
+            "type": "number",
+            "minimum": 0.2,
+            "maximum": 5,
+            "default": 1
+          },
+          "aiConfidence": {
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 0.95,
+            "default": 0.45
+          },
+          "aiClasses": {
+            "type": "array",
+            "maxItems": 1000,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "default": [
+              "person",
+              "bicycle",
+              "car",
+              "motorcycle",
+              "airplane",
+              "bus",
+              "train",
+              "truck",
+              "boat"
+            ],
+            "description": "Trigger classes from the selected model's ordered labels. Trigger and ignore lists must be disjoint and select at least one class in total."
+          },
+          "aiIgnoreClasses": {
+            "type": "array",
+            "maxItems": 1000,
+            "uniqueItems": true,
+            "default": [],
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "description": "Classes shown as ignored in overlays. Each object is ignored independently; other trigger classes can still activate actions. Applies to AI and hybrid modes."
+          },
+          "aiOptions": {
+            "type": "object",
+            "additionalProperties": false,
+            "default": {},
+            "properties": {
+              "iouThreshold": {
+                "type": "number",
+                "minimum": 0.1,
+                "maximum": 0.9
+              },
+              "maxDetections": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 300
+              }
+            },
+            "description": "Advanced options supported by the selected model description. Omitted values use its defaults; model descriptions can narrow the ranges. Confidence and frame rate use the existing top-level fields."
+          },
+          "motionGateSensitivity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 80
+          },
+          "motionGateMinimumAreaPercent": {
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 50,
+            "default": 0.1
+          },
+          "sensitivity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "minimumAreaPercent": {
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 50
+          },
+          "adaptive": {
+            "$ref": "#/components/schemas/AdaptiveMotionSettings"
+          }
+        }
+      },
+      "DetectionTemplate": {
+        "type": "object", "required": ["id", "name", "settings"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-fA-F0-9]{32}$" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "settings": { "$ref": "#/components/schemas/DetectionSettings" }
+        }
+      },
+      "CameraRecordingSettings": {
+        "type": "object",
+        "properties": {
+          "detectionTemplateId": { "type": "string", "nullable": true, "description": "Shared template ID. Omitted/null retains legacy inline detection policy; inline fields are ignored while assigned." },
+          "adaptive": { "$ref": "#/components/schemas/AdaptiveMotionSettings" },
+          "channel": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "mode": {
+            "type": "string", "enum": ["event", "continuous", "available-video"], "default": "event",
+            "description": "Continuous saves consecutive segments during streamSchedule. Available-video requires a motion-activated/battery camera."
+          },
+          "detectDuringContinuousRecording": {
+            "type": "boolean", "default": false,
+            "description": "Optional motion markers and zone webhooks during continuous capture; does not create duplicate video."
+          },
+          "recordWhenStreaming": {
+            "type": "boolean", "default": false,
+            "description": "Legacy alias: true selects available-video mode. Retained for compatibility."
+          },
+          "streamSchedule": {
+            "type": "array", "maxItems": 16, "default": [],
+            "items": { "$ref": "#/components/schemas/ZoneTimeRange" },
+            "description": "Recording schedule for continuous and available-video modes. Empty means all day, every day. Uses the recording timezone."
+          },
+          "detectionSubstream": {
+            "type": "boolean"
+          },
+          "detectionMethod": {
+            "type": "string",
+            "enum": ["adaptive", "adaptive-ai", "ai"],
+            "default": "adaptive"
+          },
+          "analysisWidth": {
+            "type": "integer", "enum": [320, 640, 960], "default": 320
+          },
+          "analysisFramesPerSecond": {
+            "type": "number", "minimum": 1, "maximum": 10, "default": 5
+          },
+          "aiModel": {
+            "type": "string", "maxLength": 80, "pattern": "^[a-z0-9][a-z0-9_-]*$", "default": "yolox-nano",
+            "description": "Registered model ID. Administrator catalogue: GET /api/recording/detection. Compatible custom models are discovered from *.model.json descriptions."
+          },
+          "aiDevice": {
+            "type": "string", "enum": ["cpu", "gpu", "auto"], "default": "cpu"
+          },
+          "aiFramesPerSecond": {
+            "type": "number", "minimum": 0.2, "maximum": 5, "default": 1
+          },
+          "aiConfidence": {
+            "type": "number", "minimum": 0.1, "maximum": 0.95, "default": 0.45
+          },
+          "aiClasses": {
+            "type": "array", "maxItems": 1000, "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1, "maxLength": 80 },
+            "default": ["person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat"],
+            "description": "Trigger classes from the selected model's ordered labels. Trigger and ignore lists must be disjoint and select at least one class in total."
+          },
+          "aiIgnoreClasses": {
+            "type": "array", "maxItems": 1000, "uniqueItems": true, "default": [],
+            "items": { "type": "string", "minLength": 1, "maxLength": 80 },
+            "description": "Classes shown as ignored in overlays. Each object is ignored independently; other trigger classes can still activate actions. Applies to AI and hybrid modes."
+          },
+          "aiOptions": {
+            "type": "object", "additionalProperties": false, "default": {},
+            "properties": {
+              "iouThreshold": { "type": "number", "minimum": 0.1, "maximum": 0.9 },
+              "maxDetections": { "type": "integer", "minimum": 1, "maximum": 300 }
+            },
+            "description": "Advanced options supported by the selected model description. Omitted values use its defaults; model descriptions can narrow the ranges. Confidence and frame rate use the existing top-level fields."
+          },
+          "motionGateSensitivity": {
+            "type": "integer", "minimum": 1, "maximum": 100, "default": 80
+          },
+          "motionGateMinimumAreaPercent": {
+            "type": "number", "minimum": 0.1, "maximum": 50, "default": 0.1
+          },
+          "sensitivity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "minimumAreaPercent": {
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 50
+          },
+          "zones": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "$ref": "#/components/schemas/MotionZone"
+            }
+          },
+          "defaultActionIds": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "record"
+            ],
+            "description": "Actions inherited by zones, and used for full-frame detection. Empty array means no actions."
+          }
+        }
+      },
+      "RecordingSettings": {
+        "type": "object",
+        "description": "Replace the full document returned by GET. Applying settings restarts recording workers. Protect the recording directory from unrelated writes. Timezone applies to zone and recording schedules. All modes share the SQLite catalogue, protection and retention. New media uses configuration/camera/UTC-date folders; legacy sidecars import automatically. Back up the complete folder with the server stopped before upgrading or rolling back.",
+        "properties": {
+          "detectionTemplates": { "type": "array", "maxItems": 64, "default": [], "items": { "$ref": "#/components/schemas/DetectionTemplate" } },
+          "enabled": {
+            "type": "boolean"
+          },
+          "directory": {
+            "type": "string"
+          },
+          "timeZoneId": {
+            "type": "string"
+          },
+          "preCaptureSeconds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 60
+          },
+          "postCaptureSeconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 120
+          },
+          "maximumEventSeconds": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 3600
+          },
+          "bufferMegabytesPerCamera": {
+            "type": "integer",
+            "minimum": 8,
+            "maximum": 128
+          },
+          "retentionDays": {
+            "type": "integer",
+            "description": "Days before recordings expire by age. Zero disables age-based expiry.",
+            "minimum": 0,
+            "maximum": 365
+          },
+          "maximumStorageGigabytes": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "cameras": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CameraRecordingSettings"
+            }
+          },
+          "actions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/MotionAction"
+            },
+            "description": "Reusable actions with unique IDs. Must include the reserved record action. Omitted in legacy settings defaults to Record."
+          }
+        }
+      },
+      "CameraEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "enum": [
+              1
+            ]
+          },
+          "type": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cameraId": {
+            "type": "string",
+            "nullable": true
+          },
+          "channel": {
+            "type": "integer",
+            "nullable": true
+          },
+          "cameraName": {
+            "type": "string",
+            "nullable": true
+          },
+          "zones": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "recordingId": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "actionIds": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "description": "Selected enabled webhook actions for a motion.started transition. No action configuration or URLs are exposed."
+          }
+        }
+      },
+      "MotionAction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable 32-character hexadecimal UUID, or record for the built-in Record action."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "record",
+              "webhook"
+            ],
+            "default": "record"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "url": {
+            "type": "string",
+            "maxLength": 2048,
+            "description": "Required for webhook actions: HTTP(S), without embedded credentials or fragment."
+          },
+          "payload": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 16384,
+            "description": "Static JSON body. Null/blank sends the motion event including camera and zone names."
+          },
+          "cooldownSeconds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3600,
+            "default": 30,
+            "description": "Suppress repeated motion activations per action, camera and zone. Does not delay retries."
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/cameras": {
+      "get": {
+        "summary": "Discover cameras and recording state",
+        "description": "Requires read scope (or admin).",
+        "x-required-scope": "read",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Missing, expired or revoked token"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Conflicting state or idempotency key"
+          }
+        }
+      }
+    },
+    "/cameras/{id}": {
+      "get": {
+        "summary": "Read one camera",
+        "description": "Requires read scope (or admin).",
+        "x-required-scope": "read",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Missing, expired or revoked token"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Conflicting state or idempotency key"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/cameras/{id}/zones": {
+      "get": {
+        "summary": "Read geometry, weekly schedules and active state",
+        "description": "Requires read scope (or admin).",
+        "x-required-scope": "read",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Missing, expired or revoked token"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Conflicting state or idempotency key"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/cameras/{id}/snapshot": {
+      "get": {
+        "summary": "Latest live JPEG; 404 when live viewing has no frame",
+        "description": "Requires read scope (or admin).",
+        "x-required-scope": "read",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Missing, expired or revoked token"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Conflicting state or idempotency key"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/cameras/{id}/arming": {
+      "get": {
+        "summary": "Read effective arming override",
+        "description": "Requires read scope (or admin).",
+        "x-required-scope": "read",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Missing, expired or revoked token"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Conflicting state or idempotency key"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "put": {
+        "summary": "Set expiring arming override",
+        "description": "Requires control scope (or admin).",
+        "x-required-scope": "control",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Missing, expired or revoked token"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Conflicting state or idempotency key"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArmingOverride"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recordings/trigger": {
+      "post": {
+        "summary": "Start or extend recording from an external sensor",
+        "description": "Requires trigger scope (or admin).",
+        "x-required-scope": "trigger",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Missing, expired or revoked token"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Conflicting state or idempotency key"
+          },
+          "202": {
+            "description": "Accepted receipt; query Location for recording IDs. Accepted is not a guarantee of successful capture."
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "description": "Unique per trigger, retained for at least 24 hours per token. Reuse for retries."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriggerRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/recording-requests/{id}": {
+      "get": {
+        "summary": "Read a trigger receipt and related recordings",
+        "description": "Requires read scope (or admin).",
+        "x-required-scope": "read",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Missing, expired or revoked token"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Conflicting state or idempotency key"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/recordings": {
+      "get": {
+        "summary": "List recordings newest first",
+        "description": "Requires read scope (or admin).",
+        "x-required-scope": "read",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Missing, expired or revoked token"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Conflicting state or idempotency key"
+          }
+        },
+        "parameters": [
+          {
+            "name": "cameraId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ]
+      }
+    },
+    "/recordings/timeline": {
+      "get": {
+        "summary": "Read recorded coverage for a camera and time range",
+        "description": "Requires read scope. Includes recordings overlapping the range, ordered by start time. Returns {recordings, truncated}, with up to 2000 entries. Recording metadata includes mode (event, continuous or available-video). Active entries cannot be played yet.",
+        "x-required-scope": "read",
+        "parameters": [
+          { "name": "cameraId", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "since", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
+          { "name": "before", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" }, "description": "Exclusive end; range must be positive and at most two days." }
+        ],
+        "responses": {
+          "200": { "description": "Coverage and truncation flag" },
+          "400": { "description": "Invalid camera ID or time range" },
+          "401": { "description": "Missing, expired or revoked token" },
+          "403": { "description": "Insufficient scope" }
+        }
+      }
+    },
+    "/recordings/{id}/markers": {
+      "get": {
+        "summary": "Read timestamped activity markers for existing footage",
+        "description": "Requires read scope. Returns up to 8192 markers in chronological order, including id, timestamp, source, reason, requestId and zones. Retains repeated activations independently of the bounded additionalTriggers compatibility summary. Seek relative to the recording's startedAt.",
+        "x-required-scope": "read",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Activity marker array" },
+          "401": { "description": "Missing, expired or revoked token" },
+          "403": { "description": "Insufficient scope" },
+          "404": { "description": "Recording not found in the active configuration" }
+        }
+      }
+    },
+    "/recordings/{id}": {
+      "get": {
+        "summary": "Read metadata, source and authenticated media links",
+        "description": "Requires read scope (or admin).",
+        "x-required-scope": "read",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Missing, expired or revoked token"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Conflicting state or idempotency key"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Delete an unprotected completed recording",
+        "description": "Requires admin scope (or admin).",
+        "x-required-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Missing, expired or revoked token"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Conflicting state or idempotency key"
+          },
+          "204": {
+            "description": "Deleted"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/recordings/{id}/video": {
+      "get": {
+        "summary": "Stream or download MP4 (supports byte ranges)",
+        "description": "Requires read scope (or admin).",
+        "x-required-scope": "read",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Missing, expired or revoked token"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Conflicting state or idempotency key"
+          },
+          "206": {
+            "description": "Partial media content"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "download",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ]
+      }
+    },
+    "/recordings/{id}/thumbnail": {
+      "get": {
+        "summary": "Read thumbnail JPEG",
+        "description": "Requires read scope (or admin).",
+        "x-required-scope": "read",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Missing, expired or revoked token"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Conflicting state or idempotency key"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/recordings/{id}/protection": {
+      "put": {
+        "summary": "Protect or unprotect recording",
+        "description": "Requires admin scope (or admin).",
+        "x-required-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Missing, expired or revoked token"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Conflicting state or idempotency key"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProtectionRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/recording": {
+      "get": {
+        "summary": "Read full recording settings",
+        "description": "Requires admin scope (or admin).",
+        "x-required-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Missing, expired or revoked token"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Conflicting state or idempotency key"
+          }
+        }
+      },
+      "put": {
+        "summary": "Replace recording settings",
+        "description": "Requires admin scope (or admin).",
+        "x-required-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Missing, expired or revoked token"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Conflicting state or idempotency key"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordingSettings"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/detections": {
+      "get": {
+        "summary": "Read current detector observations and buffered overlay history",
+        "description": "Requires read or admin scope. Also available at /api/detections. No model paths, settings or extra inference. Current detections expire in wall time; history retains timestamped samples including empty results for buffered playback. Configuration ID identifies the active camera collection. Use since with the previous generatedAt to request new publications; deduplicate inclusive boundaries and clear history when its id changes.",
+        "x-required-scope": "read",
+        "parameters": [{ "name": "since", "in": "query", "required": false, "schema": { "type": "string", "format": "date-time" }, "description": "Inclusive publication cursor from a previous generatedAt; omit for the retained history." }],
+        "responses": {
+          "200": {
+            "description": "Current observations (empty when no detection workers are enabled)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "configurationId": { "type": "string" },
+                    "generatedAt": { "type": "string", "format": "date-time" },
+                    "historySeconds": { "type": "number", "exclusiveMinimum": 0 },
+                    "maximumHistorySamples": { "type": "integer", "minimum": 1 },
+                    "enabled": { "type": "boolean" },
+                    "methods": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "shortName": { "type": "string" } } } },
+                    "models": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "name": { "type": "string" } } } },
+                    "cameras": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "channel": { "type": "integer" },
+                          "status": { "type": "string" },
+                          "history": {
+                            "type": "object",
+                            "properties": {
+                              "id": { "type": "string" },
+                              "frames": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "capturedAt": { "type": "string", "format": "date-time" },
+                                    "publishedAt": { "type": "string", "format": "date-time" },
+                                    "detections": { "type": "array", "items": { "$ref": "#/components/schemas/DetectionObservation" } }
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "detections": {
+                            "type": "array", "maxItems": 128,
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "observation": { "$ref": "#/components/schemas/DetectionObservation" },
+                                "ageSeconds": { "type": "number", "minimum": 0 },
+                                "remainingSeconds": { "type": "number", "minimum": 0 }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid publication cursor" },
+          "401": { "description": "Missing, expired or revoked token" },
+          "403": { "description": "Insufficient scope" }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Read camera, recording, storage and delivery health",
+        "description": "Requires read scope (or admin).",
+        "x-required-scope": "read",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Missing, expired or revoked token"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Conflicting state or idempotency key"
+          }
+        }
+      }
+    },
+    "/events": {
+      "get": {
+        "summary": "Live SSE events; no replay; refresh state after reconnect",
+        "description": "Requires read scope (or admin).",
+        "x-required-scope": "read",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Missing, expired or revoked token"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Conflicting state or idempotency key"
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "summary": "Read this specification",
+        "description": "Requires read scope (or admin).",
+        "x-required-scope": "read",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Missing, expired or revoked token"
+          },
+          "403": {
+            "description": "Insufficient scope"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Conflicting state or idempotency key"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+<Solution>
+  <Project Path="src/SecurityCameraViewer.Nvr/SecurityCameraViewer.Nvr.csproj" />
+  <Project Path="tests/SecurityCameraViewer.Nvr.Tests/SecurityCameraViewer.Nvr.Tests.csproj" />
+  <Project Path="src/SecurityCameraViewer.Core/SecurityCameraViewer.Core.csproj" />
+  <Project Path="src/SecurityCameraViewer.Recording/SecurityCameraViewer.Recording.csproj" />
+  <Project Path="tests/SecurityCameraViewer.Recording.Tests/SecurityCameraViewer.Recording.Tests.csproj" />
+  <Project Path="src/SecurityCameraViewer.Web/SecurityCameraViewer.Web.csproj" />
+  <Project Path="tests/SecurityCameraViewer.Tests/SecurityCameraViewer.Tests.csproj" />
+  <Project Path="tests/SecurityCameraViewer.Web.Tests/SecurityCameraViewer.Web.Tests.csproj" />
+  <Project Path="tests/SecurityCameraViewer.Streaming.Tests/SecurityCameraViewer.Streaming.Tests.csproj" />
+  <Project Path="tests/SecurityCameraViewer.Integration.Tests/SecurityCameraViewer.Integration.Tests.csproj" />
+  <Project Path="tools/SecurityCameraViewer.SettingsMigration/SecurityCameraViewer.SettingsMigration.csproj" />
+</Solution>

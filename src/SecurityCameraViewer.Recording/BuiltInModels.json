@@ -1,0 +1,32 @@
+{
+  "labels": [
+    "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
+    "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
+    "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
+    "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle",
+    "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange",
+    "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch", "potted plant", "bed",
+    "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cell phone", "microwave", "oven",
+    "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"
+  ],
+  "options": [
+    {"id": "confidence", "label": "Minimum AI confidence", "minimum": 0.1, "maximum": 0.95, "step": 0.01, "default": 0.45, "help": "A model score from 0 to 1. Higher values reject uncertain objects but can miss small or obscured objects."},
+    {"id": "framesPerSecond", "label": "AI checks per second", "minimum": 0.2, "maximum": 5, "step": 0.1, "default": 1, "help": "Shared inference is rate limited. Start at 1 check per second on a small server."},
+    {"id": "iouThreshold", "label": "Duplicate box overlap threshold", "minimum": 0.1, "maximum": 0.9, "step": 0.05, "default": 0.45, "help": "Suppress overlapping boxes for the same class. Exports with built-in suppression may impose additional limits."},
+    {"id": "maxDetections", "label": "Maximum objects per inference", "minimum": 1, "maximum": 300, "step": 1, "default": 300, "help": "Limits retained objects across trigger and ignore classes. Live overlays display up to 64 AI objects."}
+  ],
+  "models": [
+    {"id": "yolox-nano", "name": "YOLOX Nano (lowest load)", "fileName": "yolox_nano.onnx", "inputSize": 416, "adapter": "yolox", "license": "Apache-2.0", "presets": [
+      {"id": "default", "name": "People and all vehicles", "triggerClasses": ["person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat"], "ignoreClasses": [], "options": {"confidence": 0.45, "framesPerSecond": 1, "iouThreshold": 0.45, "maxDetections": 300}, "device": "cpu"},
+      {"id": "original", "name": "Original defaults (people and cars)", "triggerClasses": ["person", "car"], "ignoreClasses": [], "options": {"confidence": 0.45, "framesPerSecond": 1, "iouThreshold": 0.45, "maxDetections": 300}, "device": "cpu"}
+    ] },
+    {"id": "yolox-tiny", "name": "YOLOX Tiny", "fileName": "yolox_tiny.onnx", "inputSize": 416, "adapter": "yolox", "license": "Apache-2.0", "presets": [
+      {"id": "default", "name": "People and all vehicles", "triggerClasses": ["person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat"], "ignoreClasses": [], "options": {"confidence": 0.45, "framesPerSecond": 1, "iouThreshold": 0.45, "maxDetections": 300}, "device": "cpu"},
+      {"id": "original", "name": "Original defaults (people and cars)", "triggerClasses": ["person", "car"], "ignoreClasses": [], "options": {"confidence": 0.45, "framesPerSecond": 1, "iouThreshold": 0.45, "maxDetections": 300}, "device": "cpu"}
+    ] },
+    {"id": "yolo26-nano", "name": "YOLO26 Nano", "fileName": "yolo26n.onnx", "inputSize": 640, "adapter": "ultralytics", "license": "AGPL-3.0 / Enterprise", "presets": [
+      {"id": "default", "name": "People and all vehicles", "triggerClasses": ["person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat"], "ignoreClasses": [], "options": {"confidence": 0.45, "framesPerSecond": 1, "iouThreshold": 0.45, "maxDetections": 300}, "device": "cpu"},
+      {"id": "original", "name": "Original defaults (people and cars)", "triggerClasses": ["person", "car"], "ignoreClasses": [], "options": {"confidence": 0.45, "framesPerSecond": 1, "iouThreshold": 0.45, "maxDetections": 300}, "device": "cpu"}
+    ] }
+  ]
+}

@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.0" />
+    <InternalsVisibleTo Include="SecurityCameraViewer.Web.Tests" />
+    <Content Include="../../connect-web.cmd" Link="connect-web.cmd" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../connect-web.sh" Link="connect-web.sh" CopyToPublishDirectory="PreserveNewest" />
+    <Content Update="IntegrationOpenApi.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <ProjectReference Include="../SecurityCameraViewer.Core/SecurityCameraViewer.Core.csproj" />
+    <ProjectReference Include="../SecurityCameraViewer.Recording/SecurityCameraViewer.Recording.csproj" />
+    <ProjectReference Include="../SecurityCameraViewer.Nvr/SecurityCameraViewer.Nvr.csproj" />
+  </ItemGroup>
+  <!-- LGPL corresponding source accompanies published servers; the decoder stays user-replaceable. -->
+  <Target Name="IncludeCameraDecoderSources" BeforeTargets="ComputeFilesToPublish">
+    <PropertyGroup>
+      <CameraDecoderSource>$(IntermediateOutputPath)camera-decoder/ffmpeg-8.0.1.tar.xz</CameraDecoderSource>
+    </PropertyGroup>
+    <DownloadFile SourceUrl="https://ffmpeg.org/releases/ffmpeg-8.0.1.tar.xz"
+                  DestinationFolder="$(IntermediateOutputPath)camera-decoder" DestinationFileName="ffmpeg-8.0.1.tar.xz"
+                  Condition="!Exists('$(CameraDecoderSource)')" />
+    <VerifyFileHash File="$(CameraDecoderSource)" Algorithm="SHA256" Hash="05EE0B03119B45C0BDB4DF654B96802E909E0A752F72E4FE3794F487229E5A41" />
+    <ItemGroup>
+      <ResolvedFileToPublish Include="$(CameraDecoderSource)" RelativePath="wwwroot/vendor/camera-decoder/ffmpeg-8.0.1.tar.xz" CopyToPublishDirectory="PreserveNewest" />
+      <ResolvedFileToPublish Include="../../tools/browser-decoder/decoder.c" RelativePath="wwwroot/vendor/camera-decoder/decoder.c" CopyToPublishDirectory="PreserveNewest" />
+      <ResolvedFileToPublish Include="../../tools/browser-decoder/build.sh" RelativePath="wwwroot/vendor/camera-decoder/build.sh" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
+</Project>
