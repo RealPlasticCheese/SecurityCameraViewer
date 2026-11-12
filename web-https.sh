@@ -121,9 +121,9 @@ configure_listener() {
   content=$(cat "$caddy_file")
   if [[ $first =~ ^[[:space:]]*\{([[:space:]]*\#.*)?[[:space:]]*$ ]]; then
     # Extend an existing global block without replacing its other options.
-    awk -v include="    import $listener_file" '
+    awk -v listener_import="    import $listener_file" '
       !added && /^[[:space:]]*\{([[:space:]]*#.*)?[[:space:]]*$/ {
-        print; print include; added=1; next
+        print; print listener_import; added=1; next
       }
       { print }
     ' <<< "$content" > "$caddy_file"

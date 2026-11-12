@@ -4,4 +4,9 @@ if ($LASTEXITCODE -ne 0) { throw 'FFmpeg installation failed.' }
 . "$PSScriptRoot/../packaging/windows/Setup-Server.ps1"
 $binary = Resolve-FfmpegExecutable (Get-Command ffmpeg.exe -ErrorAction Stop).Source
 # FFmpeg lifetime tests need the real process, not Chocolatey's child-process launcher.
-Write-Host "##vso[task.prependpath]$(Split-Path $binary)"
+$directory = Split-Path $binary
+if ($env:GITHUB_PATH) {
+    Add-Content -LiteralPath $env:GITHUB_PATH -Value $directory -Encoding utf8
+} elseif ($env:TF_BUILD) {
+    Write-Host "##vso[task.prependpath]$directory"
+}
