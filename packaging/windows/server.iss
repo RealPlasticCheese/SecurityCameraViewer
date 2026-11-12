@@ -16,7 +16,6 @@ AppPublisherURL=https://plasticcheese.com
 AppSupportURL=https://plasticcheese.com
 AppCopyright=Copyright (c) 2026 Frank Tzanabetis
 DisableWelcomePage=no
-LicenseFile={#PublishDirectory}\LICENSE
 AppVersion={#PackageVersion}
 DefaultDirName={autopf}\SecurityCameraViewer
 DefaultGroupName=Security Camera Viewer
