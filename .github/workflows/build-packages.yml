@@ -47,6 +47,7 @@ jobs:
             echo "Package version must be major.minor.patch without leading zeros."
             exit 1
           fi
+          python3 tests/test_web_https.py
           bash eng/build-linux.sh "$PACKAGE_VERSION" "$GITHUB_SHA"
           bash eng/test-linux-packages.sh artifacts/packages
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
