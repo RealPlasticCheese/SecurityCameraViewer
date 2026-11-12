@@ -2,8 +2,9 @@ param([Parameter(Mandatory)][string]$Packages)
 $ErrorActionPreference = 'Stop'
 $installer = @(Get-ChildItem -Path $Packages -Filter '*-setup.exe')
 if ($installer.Count -ne 1) { throw 'Expected exactly one setup executable.' }
-if ($installer[0].VersionInfo.CompanyName -ne 'Frank Tzanabetis' -or
-    $installer[0].VersionInfo.LegalCopyright -notlike '*Frank Tzanabetis*') {
+$versionInfo = [Diagnostics.FileVersionInfo]::GetVersionInfo($installer[0].FullName)
+if ($versionInfo.CompanyName.Trim() -ne 'Frank Tzanabetis' -or
+    $versionInfo.LegalCopyright -notlike '*Frank Tzanabetis*') {
     throw 'Installer publisher or copyright attribution is missing.'
 }
 function Write-InstallDiagnostics {
