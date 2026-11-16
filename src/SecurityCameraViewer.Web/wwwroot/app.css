@@ -310,6 +310,10 @@ textarea{resize:vertical}
 .camera-setup pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; padding: 12px; background: #10151e; border-radius: 6px; }
 .camera-setup details { margin: 14px 0; padding: 12px; border: 1px solid #3a485b; border-radius: 6px; }
 .camera-setup summary { cursor: pointer; font-weight: 600; margin-bottom: 10px; }
+#settings-backup-dialog { width: min(600px, 96vw); }
+#settings-backup-dialog form { align-items: flex-start; gap: 8px; }
+#settings-backup-dialog label { margin: 0; }
+#settings-backup-dialog a { color: var(--mint); }
 .camera-setup fieldset { margin: 16px 0; padding: 14px; border: 1px solid #3a485b; border-radius: 6px; min-width: 0; }
 .camera-setup legend { padding: 0 6px; }
 .camera-setup p, .camera-setup legend { overflow-wrap: anywhere; }

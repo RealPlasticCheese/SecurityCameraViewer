@@ -139,6 +139,14 @@ function setMenu(open, restoreFocus = false) {
 }
 
 menuToggle.onclick = () => setMenu(menu.hidden);
+const settingsBackup = $('settings-backup-dialog');
+$('settings-backup-open').onclick = () => {
+  setMenu(false);
+  settingsBackup.querySelector('form').reset();
+  settingsBackup.showModal();
+};
+$('settings-backup-close').onclick = () => settingsBackup.close();
+settingsBackup.addEventListener('close', () => menuToggle.focus());
 document.addEventListener('pointerdown', event => {
   if (!event.target.closest('.viewer-controls')) setMenu(false);
 });

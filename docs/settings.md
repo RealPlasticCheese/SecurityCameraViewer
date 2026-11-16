@@ -18,6 +18,18 @@ Recordings, saved NVR exports, logs, webhook delivery queues, trigger receipts, 
 
 Edits through the browser update only the intended section, under one shared lock, and publish the new in-memory snapshot after a durable atomic file replacement. To edit the file manually, stop the server first. Invalid, unsupported or legacy documents stop startup without overwriting anything or disabling authentication. The server does not reread manual edits while running. The standalone administrator-token recovery command also requires the server to be stopped.
 
+## Back up and restore
+
+Save any pending changes, then open **Backup & restore settings** from the viewer menu. Select **Include passwords** and choose **Download settings backup**. The downloaded `settings.json` contains every saved server setting, including all collections, the active collection and stable camera IDs, recording and detection settings, filters, enhancements, NVR and streaming settings, integration token hashes and webhook signing secrets. Use the same API tokens after restoring. Keep their original plaintext values separately.
+
+**Include passwords** starts unchecked. An unchecked backup clears the saved recorder, camera, ONVIF, NVR and streaming passwords and webhook signing secrets. After restoring one, re-enter the passwords, re-enable the streaming service if needed, and generate signing secrets before enabling the restored webhooks. Both exports keep exact URLs and custom webhook payloads, which can contain credentials. Keep either file private. If integration authentication is enabled, downloading a backup requires administrator access.
+
+1. Install the same version or a newer version that supports the backup format. Stop the viewer server if it is running.
+2. Copy the backup to the path the server uses for `settings.json`. Packaged Windows uses `%ProgramData%\SecurityCameraViewer\data\settings.json` by default, and packaged Linux uses `/var/lib/security-camera-viewer/settings.json`. For custom package setups, read the `settings` value in `host.json`. For other installs, use the default per-user location above, or point `--settings` directly at the backup. Keep the file outside the web root and give the server account access.
+3. Start the server. If integration authentication was enabled, sign in again using the original administrator token. If that token is unavailable, use the existing [administrator recovery command](integrations.md#enable-access-from-the-hamburger-menu).
+
+The backup stores paths to recording libraries and custom resources. Copy those files separately if you want to retain them, and update the saved paths before starting if the new host uses different locations. Browser layouts and preferences stay in that browser. Reapply any host-specific service, listener, HTTPS and firewall setup on the new machine.
+
 ## One-time migration
 
 ### TL;DR: Linux service

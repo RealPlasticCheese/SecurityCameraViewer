@@ -5,7 +5,7 @@ using SecurityCameraViewer.Web.Streaming;
 
 namespace SecurityCameraViewer.Web.Settings;
 
-/// <summary>Private persistence model. Never return this document from a browser API.</summary>
+/// <summary>Private persistence model. Only expose it through an explicit settings backup.</summary>
 public sealed record AppSettings
 {
     public int Version { get; init; } = 1;

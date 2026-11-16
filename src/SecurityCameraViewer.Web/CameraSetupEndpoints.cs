@@ -1,5 +1,6 @@
 using System.Text;
 using SecurityCameraViewer.Core;
+using SecurityCameraViewer.Web.Settings;
 
 namespace SecurityCameraViewer.Web;
 
@@ -13,6 +14,8 @@ public static class CameraSetupEndpoints
     {
         var onvif = new OnvifClient();
         var setup = app.MapGroup("/api/setup");
+        setup.MapGet("/settings/backup", (IAppSettingsStore store, bool includePasswords = false) =>
+            Results.File(AppSettingsBackup.Create(store.Read(), includePasswords), "application/json", "settings.json"));
         setup.MapGet("/configurations", (ViewerService viewer) => viewer.Configurations());
         setup.MapGet("/configurations/{id}/passwords", (string id, ViewerService viewer, HttpContext context) =>
         {
