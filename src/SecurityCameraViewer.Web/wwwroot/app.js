@@ -68,7 +68,7 @@ function renderLiveAudio() {
     const audioLabel = audio.hasAudio === false ? 'No Audio' : audio.hasAudio === true ?
       audio.codec ? `${audio.codec} Audio` : 'Audio' : 'Checking audio…';
     if (tile.audioLabel.textContent !== audioLabel) tile.audioLabel.textContent = audioLabel;
-    tile.audioLabel.title = audio.hasAudio === null ? 'Waiting for the camera stream description. Audio availability is not yet known.' : '';
+    tile.audioLabel.title = audio.hasAudio === null ? 'Waiting for the camera stream description. Audio availability is not yet known.' : audioLabel;
     tile.listen.hidden = audio.hasAudio !== true;
     tile.listen.textContent = label(player);
     tile.listen.setAttribute('aria-pressed', String(enabled(player)));
@@ -194,10 +194,26 @@ function createTiles() {
     const channel = source.channel, name = source.name?.trim() || `Camera ${number}`;
     const root = document.createElement('article'); root.className = 'tile'; root.dataset.channel = channel;
     // Only fixed markup goes through innerHTML. Recorder data is inserted as text.
-    root.innerHTML = '<div class="tile-header"><div class="tile-title"><span class="channel"></span><span class="name"></span></div><span class="badge">OFFLINE</span></div><div class="surface"><img alt=""><div class="placeholder"><small></small><strong>Ready to connect</strong><p>Your live camera picture will appear here.</p></div><div class="stale-label" hidden></div></div>';
+    root.innerHTML = `
+      <div class="tile-header">
+        <div class="tile-identity">
+          <div class="tile-title"><span class="channel"></span><span class="name"></span></div>
+          <div class="tile-badges"><span class="badge">OFFLINE</span><span class="recording-badge"></span></div>
+        </div>
+        <button type="button" class="camera-check" title="Check stream availability; this does not wake the camera">Check now</button>
+        <div class="tile-media-status">
+          <span class="camera-playback-status" role="status"></span>
+          <div class="tile-audio"><span class="camera-audio-label" role="status"></span></div>
+        </div>
+        <span class="camera-audio-status" role="status"></span>
+      </div>
+      <div class="surface">
+        <img alt="">
+        <div class="placeholder"><small></small><strong>Ready to connect</strong><p>Your live camera picture will appear here.</p></div>
+        <div class="stale-label" hidden></div>
+      </div>`;
     root.querySelector('.channel').textContent = String(number).padStart(2, '0');
     root.querySelector('.name').textContent = name;
-    const recordingBadge = document.createElement('span'); recordingBadge.className = 'recording-badge'; root.querySelector('.tile-header').append(recordingBadge);
     root.querySelector('.tile-title').title = name;
     $('camera-focus').add(new Option(`${number}. ${name}`, String(channel)));
     root.querySelector('small').textContent = `CAMERA ${String(number).padStart(2, '0')}`;
@@ -235,8 +251,7 @@ function createTiles() {
       focus = focus === channel ? null : channel; arrange();
     };
     root.querySelector('.surface').addEventListener('dblclick', toggle);
-    const check = document.createElement('button'); check.type = 'button'; check.textContent = 'Check now';
-    check.className = 'camera-check'; check.title = 'Check stream availability; this does not wake the camera';
+    const check = root.querySelector('.camera-check');
     check.hidden = !state.settings.sources?.find(c => c.channel === channel)?.motionActivated;
     check.onclick = async () => {
       check.disabled = true;
@@ -244,18 +259,15 @@ function createTiles() {
       catch (error) { tile.detail.textContent = error.message; tile.stale.textContent = error.message; }
       finally { check.disabled = false; }
     };
-    tile.check = check; root.querySelector('.tile-header').append(check);
+    tile.check = check;
     tiles.set(channel, tile); $('cameras').append(root);
-    tile.playbackStatus = document.createElement('span'); tile.playbackStatus.className = 'camera-playback-status';
-    tile.playbackStatus.setAttribute('role', 'status'); root.querySelector('.tile-header').append(tile.playbackStatus);
-    tile.audioLabel = document.createElement('span'); tile.audioLabel.className = 'camera-audio-label';
-    tile.audioLabel.setAttribute('role', 'status');
+    tile.playbackStatus = root.querySelector('.camera-playback-status');
+    tile.audioLabel = root.querySelector('.camera-audio-label');
     tile.listen = document.createElement('button'); tile.listen.type = 'button'; tile.listen.className = 'tile-listen';
     tile.listen.textContent = 'Audio OFF'; tile.listen.hidden = true;
     tile.listen.onclick = event => toggleListening(channel, event);
-    tile.soundStatus = document.createElement('span'); tile.soundStatus.className = 'camera-audio-status';
-    tile.soundStatus.setAttribute('role', 'status');
-    root.querySelector('.tile-header').append(tile.audioLabel, tile.listen, tile.soundStatus);
+    tile.soundStatus = root.querySelector('.camera-audio-status');
+    root.querySelector('.tile-audio').append(tile.listen);
     tile.playback = new CameraPlayback(channel, tile, source.playbackMethod || 'automatic',
       state.playback || { maximumQueuedBytes: 4 * 1024 * 1024, maximumQueuedPackets: 8 }, updatePreviewSelection, state.demo);
   }

@@ -91,8 +91,12 @@ before(async () => {
       state = { settings: { sources: [{ channel: 1, name: options.name || 'Front door', motionActivated: !!options.check }] } };
       createTiles();
       const tile = tiles.get(1), header = tile.root.querySelector('.tile-header');
-      tile.root.style.cssText = 'position:relative;height:' + (options.picture ? 280 : 100) + 'px;width:' + options.width + 'px';
-      tile.root.classList.add('has-frame');
+      tile.root.style.cssText = 'position:relative;height:' + (options.picture || options.waiting ? 280 : 100) + 'px;width:' + options.width + 'px';
+      tile.root.classList.toggle('has-frame', !options.waiting);
+      if (options.waiting) {
+        tile.message.textContent = 'Waiting for camera';
+        tile.detail.textContent = 'HomeBase/camera did not respond to the RTSP check.';
+      }
       tile.badge.textContent = options.badge || '● LIVE';
       tile.badge.className = 'badge' + (tile.badge.textContent.includes('LIVE') ? ' live' : '');
       header.querySelector('.recording-badge').textContent = options.recording || '';
@@ -119,19 +123,25 @@ before(async () => {
       }
       const rect = element => {
         const box = element.getBoundingClientRect();
-        return { left: box.left, right: box.right, width: box.width, height: box.height };
+        return { top: box.top, bottom: box.bottom, left: box.left, right: box.right, width: box.width, height: box.height };
+      };
+      const clickable = button => {
+        const { left, top, width, height } = button.getBoundingClientRect();
+        return width > 0 && document.elementFromPoint(left + width / 2, top + height / 2) === button;
       };
       return {
         title: rect(header.querySelector('.tile-title')), badge: rect(tile.badge),
         titleTextRight: Math.min(rect(header.querySelector('.name')).right, rect(header.querySelector('.tile-title')).right),
         recording: rect(header.querySelector('.recording-badge')),
         playback: rect(tile.playbackStatus), audio: rect(tile.audioLabel), header: rect(header),
-        check: rect(tile.check), listen: rect(tile.listen),
+        check: rect(tile.check), listen: rect(tile.listen), detail: rect(tile.detail),
         playbackScrollWidth: tile.playbackStatus.scrollWidth, playbackClientWidth: tile.playbackStatus.clientWidth,
+        playbackOverflow: getComputedStyle(tile.playbackStatus).textOverflow,
         titleScrollWidth: header.querySelector('.tile-title').scrollWidth,
         titleClientWidth: header.querySelector('.tile-title').clientWidth,
         lineHeight: parseFloat(getComputedStyle(tile.playbackStatus).lineHeight),
         headerScrollWidth: header.scrollWidth, headerClientWidth: header.clientWidth,
+        checkClickable: clickable(tile.check), listenClickable: clickable(tile.listen),
         overlay: options.picture ? (() => {
           const box = header.getBoundingClientRect(), surface = tile.root.querySelector('.surface').getBoundingClientRect();
           const painted = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
@@ -186,12 +196,12 @@ function assertAdjacent(result, recording) {
   assert.ok(Math.abs(result.badge.left - result.titleTextRight - 1) < 1, 'Playback badge follows the camera label.');
   if (recording) {
     assert.ok(Math.abs(result.recording.left - result.badge.right - 5) < 1, 'Recording badge follows the playback badge.');
-    assert.ok(result.playback.left >= result.recording.right, 'Playback details follow the left status group.');
+    assert.ok(result.playback.top >= result.recording.bottom || result.playback.left >= result.recording.right,
+      'Playback details follow the left status group.');
   }
 }
 function assertContained(result) {
   assert.ok(result.headerScrollWidth <= result.headerClientWidth, 'Footer stays within the tile.');
-  assert.ok(result.playbackScrollWidth <= result.playbackClientWidth + 1, 'Playback text fits its allocated width.');
   for (const name of ['title', 'badge', 'recording', 'playback', 'audio', 'check', 'listen']) {
     if (result[name].width > 0) {
       assert.ok(result[name].left >= result.header.left && result[name].right <= result.header.right, name + ' stays inside the footer.');
@@ -221,10 +231,12 @@ for (const badge of ['● LIVE', 'PAUSED', 'PLAYBACK', 'NO FOOTAGE', 'CONNECTING
 }
 
 for (const width of [220, 320]) {
-  test('a ' + width + 'px tile wraps details only when space is exhausted', async () => {
+  test('a ' + width + 'px tile moves playback details onto their own row', async () => {
     const result = await measure({ width, recording: 'MOTION', status: softwareStatus, audio: 'AAC Audio', listen: true });
     assertAdjacent(result, true);
-    assert.ok(result.playback.height > result.lineHeight, 'Details wrap on a genuinely narrow tile.');
+    assert.ok(result.playback.top >= result.recording.bottom);
+    assert.equal(result.playback.height, result.lineHeight);
+    assert.ok(result.listenClickable);
     assertContained(result);
   });
 }
@@ -237,11 +249,16 @@ test('long camera names are ellipsized without detaching the status badges', asy
   assertContained(result);
 });
 
-test('unavailable playback and long unbroken failure text remain within a narrow footer', async () => {
+test('unavailable playback and long unbroken failure text take only one line each', async () => {
   for (const status of ['Playback unavailable', 'DecoderFailure'.repeat(30)]) {
     const result = await measure({ width: 220, badge: 'ERROR', status });
     assertAdjacent(result);
     assertContained(result);
+    assert.equal(result.playback.height, result.lineHeight);
+    if (status.startsWith('DecoderFailure')) {
+      assert.ok(result.playbackScrollWidth > result.playbackClientWidth);
+      assert.equal(result.playbackOverflow, 'ellipsis');
+    }
   }
 });
 
@@ -250,4 +267,33 @@ test('the camera availability control remains visible beside left status badges'
   assertAdjacent(result, true);
   assert.ok(result.check.width > 0);
   assertContained(result);
+});
+
+test('a connecting battery camera keeps playback and audio readable on a 295px tile', async () => {
+  const result = await measure({ width: 295, name: 'Back garden', badge: 'CONNECTING', recording: 'REC ERROR',
+    status: 'Checking Native video', audio: 'Checking audio…', check: true, waiting: true });
+  assertContained(result);
+  assert.ok(result.checkClickable);
+  assert.ok(result.playback.top >= result.check.bottom);
+  assert.equal(result.playback.height, result.lineHeight);
+  assert.ok(result.playbackScrollWidth <= result.playbackClientWidth + 1);
+  assert.ok(Math.abs(result.audio.top - result.playback.top) < 1);
+  assert.ok(result.header.top >= result.detail.bottom, 'The footer clears the waiting message.');
+});
+
+test('an 80px live tile keeps its badges and audio in bounds and ellipsizes playback text', async () => {
+  const result = await measure({ width: 80, name: 'Driveway', recording: '● REC', status: 'Native video · H.264' });
+  assertContained(result);
+  assertAdjacent(result, true);
+  assert.equal(result.playback.height, result.lineHeight);
+  assert.ok(result.playbackScrollWidth > result.playbackClientWidth);
+  assert.equal(result.playbackOverflow, 'ellipsis');
+  assert.ok(result.audio.top >= result.playback.bottom);
+});
+
+test('Check now and Audio stay clickable when an 80px tile cannot fit them on one row', async () => {
+  const result = await measure({ width: 80, badge: 'WAITING', recording: 'REC ERROR', status: softwareStatus,
+    audio: 'AAC Audio', check: true, listen: true });
+  assertContained(result);
+  assert.ok(result.checkClickable && result.listenClickable);
 });

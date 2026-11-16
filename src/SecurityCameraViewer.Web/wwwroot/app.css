@@ -68,12 +68,18 @@ kbd{font:inherit;color:#b7c5d8;margin-left:1px;font-size:11px}
 .cameras.resizing .tile{pointer-events:none}
 #layout-status.error{color:#e4be6c}
 .tile[hidden]{display:none}
-.tile-header{position:absolute;bottom:1px;left:1px;right:1px;z-index:1;background:#10151ed9;display:flex;align-items:center;gap:1px;padding:1px;line-height:14px;pointer-events:none}
-.tile-title{flex:0 1 auto;min-width:0;font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tile-header{position:absolute;bottom:1px;left:1px;right:1px;z-index:1;background:#10151ed9;display:flex;flex-wrap:wrap;align-items:center;gap:1px;padding:1px;line-height:14px;pointer-events:none}
+/* Wrap groups at their natural widths and keep individual labels on one line. */
+.tile-identity,.tile-badges,.tile-media-status,.tile-audio{display:flex;align-items:center;gap:1px;min-width:0;max-width:100%}
+.tile-badges{flex:none}
+.tile-media-status{margin-left:auto;justify-content:flex-end;flex-wrap:wrap;column-gap:4px}
+.tile-audio{gap:3px}
+.tile-title,.tile-badges>span,.camera-playback-status,.camera-audio-label,.tile-header button{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tile-title{font-size:11px;font-weight:600}
 .channel{color:var(--muted);margin-right:1px;font-variant-numeric:tabular-nums}
 .badge{font-size:9px;font-weight:600;color:var(--muted);white-space:nowrap}
 .badge.live{color:var(--mint)}
-.tile-header .camera-check{pointer-events:auto;font-size:10px;padding:1px 4px;min-height:20px;margin-left:4px;white-space:nowrap}
+.tile-header .camera-check{pointer-events:auto;font-size:10px;padding:1px 4px;min-height:20px}
 .badge.stale{color:#e4be6c}
 /* Keep picture, enhancement and detection layers below the tile status overlay. */
 .surface{position:absolute;inset:0;z-index:0;overflow:hidden;overflow:clip}
@@ -121,7 +127,7 @@ kbd{font:inherit;color:#b7c5d8;margin-left:1px;font-size:11px}
 .tile.grid-media-ready .grid-camera-video,.tile.grid-media-ready .grid-camera-canvas{visibility:visible}
 .tile.grid-media-ready .placeholder{display:none}
 .tile.live-media-ready .grid-camera-video,.tile.live-media-ready .grid-camera-canvas,.tile.enhancement-ready .grid-camera-video,.tile.enhancement-ready .grid-camera-canvas{visibility:hidden}
-.camera-playback-status{font-size:11px;color:var(--mint);margin-left:auto;white-space:normal;overflow-wrap:anywhere;text-align:right;min-width:0;pointer-events:auto}
+.camera-playback-status{font-size:11px;color:var(--mint);text-align:right;pointer-events:auto}
 .camera-playback-status.playback-warning{color:#e4be6c}
 .camera-playback-help{font-size:13px;line-height:1.5}
 #live-volume{max-width:130px;min-height:28px;padding:0}
@@ -206,7 +212,8 @@ textarea{resize:vertical}
 .dialog-actions button{flex:1}
 #form-result{margin-top:1px;font-size:13px;line-height:1.3}
 @media(max-width:480px){.form-row{grid-template-columns:minmax(0,1fr)}.address-row{grid-template-columns:minmax(0,1fr) 80px}.tile-header .channel{display:none}.tile-title{font-size:10px}.badge{font-size:8px}.dialog-heading p{font-size:12px}}
-.recording-badge{font-size:10px;color:#ffb59e;margin-left:4px;white-space:nowrap}
+.recording-badge{font-size:10px;color:#ffb59e;margin-left:4px}
+.recording-badge:empty{display:none}
 .recording-dialog{padding:10px;width:850px}
 .recordings-dialog{padding:10px;width:min(1200px,calc(100vw - 24px));height:min(900px,calc(100dvh - 24px));flex-direction:column}
 .recordings-dialog[open]{display:flex}
@@ -355,9 +362,9 @@ textarea{resize:vertical}
 #continuous-detection-label[hidden], #software-motion-settings[hidden] { display: none; }
 
 /* Audio stays beside the codec in each camera footer, using the same text metrics. */
-.camera-audio-label,.tile-header .tile-listen{font-size:11px;line-height:14px;white-space:nowrap;flex-shrink:0}
-.camera-audio-label{color:var(--mint);margin-left:3px}
-.tile-header .tile-listen{pointer-events:auto;min-height:0;padding:0 3px;margin-left:3px}
+.camera-audio-label,.tile-header .tile-listen{font-size:11px;line-height:14px}
+.camera-audio-label{color:var(--mint);pointer-events:auto}
+.tile-header .tile-listen{pointer-events:auto;flex:none;min-height:0;padding:0 3px}
 .tile-header .tile-listen[aria-pressed=true]{color:var(--mint);border-color:var(--mint)}
 .tile-header .tile-listen[hidden]{display:none}
 .camera-audio-status{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
