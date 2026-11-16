@@ -79,6 +79,7 @@
       <p id="detection-overlay-status" class="help" role="status">Detection overlays are off.</p>
       <nav aria-label="Proprietary recorder"><a href="/nvr.html">NVR recordings (RaySharp)</a></nav>
       <nav aria-label="Integrations"><button id="streaming-open">RTSP &amp; ONVIF service</button><button id="integrations-open">Integrations &amp; API</button><button id="auth-open">Sign in</button></nav>
+      <nav aria-label="Server settings"><button id="settings-backup-open" type="button">Backup &amp; restore settings</button></nav>
       <p id="recording-status" class="help" role="status">Recording is disabled.</p>
       <p id="wake-lock-status" class="help" role="status">Allow the screen to sleep normally.</p>
       <p id="layout-status" class="help" role="status">Camera layouts save separately at each screen-width breakpoint in this browser, per configuration. Reset restores the current breakpoint only.</p>
@@ -124,6 +125,21 @@
     </section>
   </div>
 </main>
+<dialog id="settings-backup-dialog" class="camera-setup" aria-labelledby="settings-backup-title">
+  <div class="dialog-heading">
+    <h2 id="settings-backup-title">Backup &amp; restore settings</h2>
+    <button id="settings-backup-close" type="button" aria-label="Close backup and restore settings">×</button>
+  </div>
+  <form action="/api/setup/settings/backup" method="get">
+    <p>Download all saved server settings. Save any pending edits first.</p>
+    <label class="check"><input name="includePasswords" value="true" type="checkbox" aria-describedby="settings-backup-help" autocomplete="off">Include passwords</label>
+    <p id="settings-backup-help" class="help">Check this for a complete restore. Passwords and webhook signing secrets are stored in plain text. Either export can contain sensitive URLs and webhook payloads. Keep the file private.</p>
+    <button type="submit">Download settings backup</button>
+  </form>
+  <h3>Restore from a backup</h3>
+  <p>Stop the viewer server, copy the backup to the installation’s <code>settings.json</code> location, then start the server.</p>
+  <p class="help">Recording files, browser preferences and host setup are stored separately. <a href="https://github.com/RealPlasticCheese/SecurityCameraViewer/blob/main/docs/settings.md#back-up-and-restore" target="_blank" rel="noopener">Find your settings file</a>.</p>
+</dialog>
 <dialog id="connection-dialog" aria-labelledby="dialog-title">
   <form id="connection-form">
     <div class="dialog-heading"><div><h2 id="dialog-title">Recorder connection</h2><p class="muted">Connect directly to your recorder on the local network.</p></div><button type="button" id="close-dialog" aria-label="Close connection dialog">×</button></div>

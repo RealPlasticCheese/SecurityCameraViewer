@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using SecurityCameraViewer.Core;
+using SecurityCameraViewer.Recording;
 using SecurityCameraViewer.SettingsMigration;
 using SecurityCameraViewer.Web;
 using SecurityCameraViewer.Web.Nvr;
@@ -150,7 +151,90 @@ internal static class AppSettingsTests
         await RejectAsync<InvalidDataException>(() => Task.FromResult(new JsonAppSettingsStore(legacyConfiguration)));
         Check(!File.Exists(legacyConfiguration["settings"]), "Missing main settings never bypass legacy authentication in a custom directory");
 
+        Backup(Path.Combine(directory, "backup"), store.Read(), camera.Id, token.Value);
         await MigrationAsync(Path.Combine(directory, "migration"));
+    }
+
+    private static void Backup(string directory, AppSettings settings, string cameraId, string adminToken)
+    {
+        var hook = new WebhookSubscription
+        {
+            Url = "https://example.test/hooks/fixture-token",
+            Events = ["motion.started"],
+            Secret = "webhook-secret"
+        };
+        var sourceConfiguration = Configuration(Path.Combine(directory, "source", "settings.json"));
+        using var source = new JsonAppSettingsStore(sourceConfiguration);
+        source.Update(_ => settings with
+        {
+            Configurations = settings.Configurations.Select(configuration => configuration with
+            {
+                Connection = configuration.Connection with
+                {
+                    Sources = [configuration.Connection.Sources.Single() with
+                    {
+                        UseDefaultPassword = true,
+                        MainStream = "rtsp://127.0.0.1/live?token=fixture"
+                    }]
+                },
+                Recording = new RecordingSettings
+                {
+                    ConfigurationId = configuration.Connection.ConfigurationId,
+                    Directory = Path.Combine(directory, "recordings"),
+                    Enabled = true,
+                    RetentionDays = 15
+                },
+                Enhancements = new() { [cameraId] = new() { Enabled = true, Brightness = 10 } }
+            }).ToArray(),
+            Streaming = settings.Streaming with
+            {
+                Settings = settings.Streaming.Settings with
+                {
+                    Enabled = true,
+                    AdvertisedHost = "192.0.2.20",
+                    OnvifBaseUrl = "http://192.0.2.20:5080/"
+                }
+            },
+            Integrations = settings.Integrations with { Webhooks = [hook] }
+        });
+        var snapshot = source.Read();
+        var fullBackup = AppSettingsBackup.Create(snapshot, includePasswords: true);
+        Check(fullBackup.SequenceEqual(File.ReadAllBytes(source.FilePath)),
+            "The password-inclusive export exactly matches the complete saved settings file");
+
+        using var restored = Restore("full", fullBackup);
+        Check(new WebSettingsStore(restored).Load(false).Settings.ConfigurationId == snapshot.ActiveConfigurationId &&
+            new IntegrationSettings(restored, Configuration(restored.FilePath)).Authenticate(adminToken) is not null &&
+            restored.Read().Integrations.Webhooks!.Single().Secret == hook.Secret,
+            "A fresh settings store loads the active collection, token hashes and webhook signing credentials from the backup alone");
+
+        using var passwordless = Restore("passwordless", AppSettingsBackup.Create(snapshot, includePasswords: false));
+        var safe = passwordless.Read();
+        Check(safe.Configurations.All(configuration => configuration.Password == "" &&
+                configuration.Credentials.Values.All(credentials => credentials.Password == "" && credentials.OnvifPassword is null)) &&
+            safe.Nvr.Password == "" && safe.Streaming.Password == "" && !safe.Streaming.Settings.Enabled &&
+            safe.Integrations.Webhooks!.Single() is { Secret: "", Enabled: false },
+            "An unchecked backup clears passwords and signing secrets and starts without the services that require them");
+        Check(safe.Configurations[0].Credentials[cameraId].OnvifUsername == "onvif-user" &&
+            safe.Configurations[0].Connection.Sources[0] is { UseDefaultPassword: true, MainStream: "rtsp://127.0.0.1/live?token=fixture" } &&
+            safe.Streaming.Settings.DeviceId == snapshot.Streaming.Settings.DeviceId &&
+            safe.Integrations.Webhooks!.Single().Url == hook.Url &&
+            new IntegrationSettings(passwordless, Configuration(passwordless.FilePath)).Authenticate(adminToken) is not null,
+            "An unchecked backup retains credential usernames, exact URLs, stable IDs and existing API authentication");
+        Check(AppSettingsBackup.Create(source.Read(), includePasswords: true).SequenceEqual(fullBackup),
+            "Creating a passwordless backup leaves the live saved settings intact");
+
+        using var unconfigured = new JsonAppSettingsStore(Configuration(Path.Combine(directory, "unconfigured.json")));
+        using var defaults = Restore("defaults", AppSettingsBackup.Create(unconfigured.Read(), includePasswords: false));
+        Check(defaults.Read().Configurations.Single().Connection.ConfigurationId == "default",
+            "Backup works before the first settings save");
+
+        JsonAppSettingsStore Restore(string name, byte[] backup)
+        {
+            var path = Path.Combine(directory, name, "settings.json");
+            PrivateFile.WriteBytes(path, backup);
+            return new JsonAppSettingsStore(Configuration(path));
+        }
     }
 
     private static async Task MigrationAsync(string directory)

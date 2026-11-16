@@ -212,6 +212,21 @@ try
     }
     var readerInfo = await Client(["read"]);
     using var read = readerInfo.Client;
+    const string backupPath = "/api/setup/settings/backup";
+    const string fullBackupPath = backupPath + "?includePasswords=true";
+    Check((await anonymous.GetAsync(fullBackupPath)).StatusCode == HttpStatusCode.Unauthorized &&
+        (await read.GetAsync(fullBackupPath)).StatusCode == HttpStatusCode.Forbidden,
+        "Settings backups require administrator access when authentication is enabled");
+    using (var download = await admin.GetAsync(backupPath))
+    {
+        download.EnsureSuccessStatusCode();
+        var passwordless = JsonSerializer.Deserialize<AppSettings>(await download.Content.ReadAsByteArrayAsync());
+        Check(download.Content.Headers.ContentDisposition is { DispositionType: "attachment", FileName: "settings.json" } &&
+            download.Headers.CacheControl?.NoStore == true && passwordless?.Configurations.Single().Password == "",
+            "The default download is a private settings.json attachment with no saved passwords");
+    }
+    Check((await admin.GetAsync(backupPath + "?includePasswords=invalid")).StatusCode == HttpStatusCode.BadRequest,
+        "Invalid password opt-in values are rejected");
     var triggerInfo = await Client(["trigger"]);
     using var triggerClient = triggerInfo.Client;
     Check((await read.GetAsync("/api/v1/cameras")).IsSuccessStatusCode && (await read.GetAsync("/api/integrations")).StatusCode == HttpStatusCode.Forbidden &&
@@ -347,6 +362,23 @@ try
     Check((await (await Trigger(triggerClient, "door-1", body)).Content.ReadFromJsonAsync<TriggerReceipt>())!.Id == receipt.Id, "Trigger deduplication survives server restart");
     (await admin.DeleteAsync($"/api/integrations/tokens/{readerInfo.Id}")).EnsureSuccessStatusCode();
     Check((await read.GetAsync("/api/v1/cameras")).StatusCode == HttpStatusCode.Unauthorized, "Revocation takes effect on the next request");
+
+    var backup = await admin.GetByteArrayAsync(fullBackupPath);
+    var savedSettings = await File.ReadAllBytesAsync(connectionFile);
+    Check(backup.SequenceEqual(savedSettings), "The opt-in download includes the entire saved document with credentials");
+    var restoredFile = Path.Combine(root, "fresh-install", "settings.json");
+    PrivateFile.WriteBytes(restoredFile, backup);
+    await Stop(server);
+    server = null;
+    serverArgs[Array.IndexOf(serverArgs, "--settings") + 1] = restoredFile;
+    server = Start("dotnet", serverArgs);
+    await Until(async () => { try { return (await admin.GetAsync("/api/v1/health")).IsSuccessStatusCode; } catch (HttpRequestException) { return false; } },
+        "A fresh server loads the backup and accepts the original administrator token");
+    var passwords = await admin.GetFromJsonAsync<JsonElement>("/api/setup/configurations/default/passwords");
+    var restoredRecording = await admin.GetFromJsonAsync<RecordingSettings>("/api/v1/settings/recording");
+    Check(passwords.GetProperty("sharedPassword").GetString() == "local-only-test" &&
+        restoredRecording!.Cameras[0].AiModel == "parcel-model",
+        "A fresh server restores camera passwords and recording settings from the backup file");
     Console.WriteLine("All integration checks passed.");
 }
 finally

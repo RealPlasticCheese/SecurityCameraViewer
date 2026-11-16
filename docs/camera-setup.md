@@ -72,7 +72,7 @@ Password fields are separate from metadata. Blank fields keep the current passwo
 
 Shared recorder, per-camera and ONVIF passwords are saved in the private unified `settings.json` and restored after restart on Windows and Linux. See [settings, permissions and one-time migration](settings.md). Web configurations, recording rules, saved filters and credentials are sections of the document selected by `--settings`. Legacy web catalogs and credential files can still be imported using the one-time converter.
 
-Keep settings and migration backups out of source control and restrict them to the server account. Duplication and portable imports create new camera identities and require credentials to be supplied again.
+Keep settings and migration backups out of source control and restrict them to the server account. **Transfer one camera collection** exchanges the camera setup currently in the editor. Duplication and collection imports create new camera identities and require credentials to be supplied again. For a fresh installation, use [Backup & restore settings](settings.md#back-up-and-restore) to keep all saved server settings and camera identities.
 
 ## Inspect and export metadata
 
