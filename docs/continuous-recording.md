@@ -46,6 +46,15 @@ If the active folder becomes unavailable, the server automatically promotes a us
 
 The server bounds capture and health waits with `RecordingStorage:IoTimeoutSeconds` (15 seconds by default). For environment-based configuration use `RecordingStorage__IoTimeoutSeconds`. The operating system may take longer to return a blocked write. The server can promote another drive while that write remains outstanding and waits for the old call to return before reusing its destination.
 
+## Drive health
+
+**Motion & recording → Recording storage** shows drive health beside each saved recording folder, including mirrors. The server checks available folders in the background and refreshes readings about every five minutes. The report includes the last check, the drive's reported health, and available readings such as temperature, power-on hours, SSD wear, or media errors. These diagnostics are read-only and do not affect recording or failover.
+
+- **Windows:** Uses SMART readings when smartmontools is installed under `%ProgramFiles%\smartmontools` and the server account can query the disk. Otherwise, uses the built-in Windows Storage PowerShell module for disk health and available reliability counters.
+- **Linux:** Requires `findmnt` and `lsblk` from util-linux and `smartctl` from smartmontools. The server account needs permission to query the backing devices. SMART details depend on the device and any USB bridge or RAID controller. Standby drives may defer readings.
+
+Diagnostics may be unavailable for network shares, virtual disks, or filesystems whose physical drives cannot be mapped. Recorder-managed NVR disks have their own storage page.
+
 ## Segments, playback and recovery
 
 **Maximum clip length** controls segments in all modes (default 300 seconds). Cuts follow complete keyframe fragments, so duration can exceed the target by a fragment. Continuous/available-video rotation keeps RTSP connected and neither duplicates nor drops the boundary fragment. Reconnects start a new segment and can create genuine coverage gaps.

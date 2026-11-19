@@ -162,7 +162,8 @@
       const status = document.createElement('p'); status.className = 'help';
       const controls = document.createElement('div');
       actions.append(status, controls);
-      row.append(fields, actions); list.append(row);
+      const health = document.createElement('p'); health.className = 'help recording-drive-health';
+      row.append(fields, health, actions); list.append(row);
       path.oninput = () => { mirror.directory = path.value.trim(); mirror.registerReplacement = false; updateStorageStatus(); };
       quota.oninput = () => { mirror.maximumStorageGigabytes = Number(quota.value); };
     }
@@ -173,10 +174,10 @@
     const descriptions = { ready: 'Up to date', 'catching-up': 'Catching up', checking: 'Checking', offline: 'Offline',
       'wrong-folder': 'Wrong folder', stalled: 'Drive stopped responding', full: 'Full', error: 'Storage error' };
     const primaryPath = form.elements.namedItem('directory').value.trim();
-    updateRow(primaryPath, el('recording-primary-status'), el('recording-primary-actions'), null);
+    updateRow(primaryPath, el('recording-primary-status'), el('recording-primary-actions'), el('recording-primary-health'), null);
     for (const [index, row] of [...el('recording-mirror-list').children].entries()) {
       const [status, controls] = row.lastElementChild.children;
-      updateRow(draft.mirrors[index].directory, status, controls, draft.mirrors[index]);
+      updateRow(draft.mirrors[index].directory, status, controls, row.children[1], draft.mirrors[index]);
     }
     const state = latest.storageState;
     const failover = state?.lastFailoverAt ? `Last failover ${new Date(state.lastFailoverAt).toLocaleString()} from ${state.previousDirectory}.` : '';
@@ -185,13 +186,17 @@
       : ' Check the recording timeline for missing footage.') : '';
     el('recording-failover-status').textContent = failover + gap;
 
-    function updateRow(directory, status, controls, mirror) {
+    function updateRow(directory, status, controls, health, mirror) {
       const location = locations.find(value => value.directory === directory);
       const replacement = mirror ? mirror.registerReplacement : draft.registerPrimaryReplacement;
       const lag = location?.lagSeconds > 0 && !location.active ? ` · ${Math.ceil(location.lagSeconds)}s behind` : '';
       status.textContent = replacement ? 'Replacement will be registered when you save.' : location
         ? `${location.active ? 'Active · ' : ''}${descriptions[location.status] ?? location.status}${lag}` : 'Save to register this folder.';
       const key = JSON.stringify([directory, mirror !== null, replacement, location?.status, location?.canActivate, saving]);
+      const healthText = latest.driveHealthEnabled && draft.configurationId === latest.settings.configurationId && !replacement && location
+        ? describeDriveHealth(location, latest.driveHealth?.find(entry => entry.directory === directory)?.report) : '';
+      if (health.textContent !== healthText) health.textContent = healthText;
+      health.hidden = healthText === '';
       if (controls.dataset.storageKey === key) return;
       controls.dataset.storageKey = key; controls.replaceChildren();
       if (location?.canActivate) controls.append(button('Make active', async () => {
@@ -213,6 +218,32 @@
       }));
       for (const control of controls.children) control.disabled = saving;
     }
+  }
+  function describeDriveHealth(location, report) {
+    if (!report) {
+      return ['ready', 'catching-up', 'full', 'checking'].includes(location.status)
+        ? 'Checking drive health…' : 'Drive health unavailable while this folder is inaccessible.';
+    }
+
+    const status = { healthy: 'Healthy', warning: 'Warning', failing: 'Failing', unknown: 'Health unknown', unavailable: 'Unavailable' };
+    const lines = report.drives.map(drive => {
+      const measurements = [
+        [drive.temperatureCelsius, value => `${value} °C`],
+        [drive.powerOnHours, value => `${value} power-on hours`],
+        [drive.wearPercent, value => `${value}% endurance used`],
+        [drive.mediaErrors, value => `${value} media errors`],
+        [drive.reallocatedSectors, value => `${value} reallocated sectors`],
+        [drive.pendingSectors, value => `${value} pending sectors`],
+        [drive.uncorrectableSectors, value => `${value} offline uncorrectable sectors`],
+        [drive.uncorrectedReadErrors, value => `${value} uncorrected read errors`],
+        [drive.uncorrectedWriteErrors, value => `${value} uncorrected write errors`]
+      ].filter(([value]) => value != null).map(([value, format]) => format(value));
+      const device = drive.model ? `${drive.model} (${drive.device})` : drive.device;
+      return [`${device}: ${status[drive.status] ?? status.unknown} (${drive.source})`, ...measurements, drive.message].filter(Boolean).join(' · ');
+    });
+    if (report.message) lines.push(`Drive health unavailable. ${report.message}`);
+    lines.push(`Last checked ${new Date(report.checkedAt).toLocaleString()}`);
+    return (report.drives.length ? 'Drive health\n' : '') + lines.join('\n');
   }
   el('recording-mirror-add').onclick = () => {
     if (saving) return;

@@ -114,6 +114,43 @@ test('recording storage saves independent mirror quotas and can activate a caugh
   ]);
 });
 
+test('recording storage displays SMART readings, mirrors and unavailable locations', async () => {
+  const env = environment([]);
+  env.recording.driveHealthEnabled = true;
+  env.recording.settings.mirrors = [
+    { directory: '/media/mirror', maximumStorageGigabytes: 120 },
+    { directory: '/media/offline', maximumStorageGigabytes: 200 }
+  ];
+  env.recording.storageLocations = [
+    { directory: '/recordings', status: 'ready', active: true },
+    { directory: '/media/mirror', status: 'ready' },
+    { directory: '/media/offline', status: 'offline' }
+  ];
+  env.recording.driveHealth = [
+    { directory: '/recordings', report: { checkedAt: '2026-11-12T10:00:00Z', drives: [
+      { model: 'Test <SSD>', device: '/dev/nvme0n1', source: 'NVMe SMART', status: 'warning',
+        temperatureCelsius: 44, wearPercent: 90, mediaErrors: 0, powerOnHours: null },
+      { device: '/dev/sdb', source: 'SMART', status: 'failing', pendingSectors: 5 }
+    ] } },
+    { directory: '/media/mirror', report: { checkedAt: '2026-11-12T10:00:00Z',
+      drives: [], message: 'No local physical drive.' } }
+  ];
+  await env.open();
+  const primary = env.el('recording-primary-health');
+  assert.equal(primary.hidden, false);
+  assert.match(primary.textContent, /Test <SSD> .*Warning .*NVMe SMART.*44 °C.*90% endurance used.*0 media errors/);
+  assert.match(primary.textContent, /sdb: Failing .*5 pending sectors/);
+  assert.match(primary.textContent, /Last checked/);
+  assert.doesNotMatch(primary.textContent, /power-on hours/);
+  const [mirror, offline] = env.el('recording-mirror-list').children.map(row => row.children[1]);
+  assert.match(mirror.textContent, /Drive health unavailable.*No local physical drive/);
+  assert.match(offline.textContent, /folder is inaccessible/);
+  const directory = env.el('directory');
+  directory.value = '/unsaved';
+  directory.oninput();
+  assert.equal(primary.hidden, true);
+});
+
 const cameras = [
   { channel: 7, name: 'Garden', enabled: true },
   { channel: 1, name: 'Disabled entrance', enabled: false },

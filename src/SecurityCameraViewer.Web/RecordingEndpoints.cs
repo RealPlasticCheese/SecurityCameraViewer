@@ -9,7 +9,8 @@ public static class RecordingEndpoints
 {
     public static void MapRecordingEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/recording", (RecordingService recording) => recording.Snapshot());
+        app.MapGet("/api/recording", (RecordingService recording, RecordingDriveHealthMonitor driveHealth) =>
+            recording.Snapshot(driveHealth));
         app.MapGet("/api/detections", (RecordingService recording, CancellationToken token, DateTimeOffset? since) => recording.DetectionSnapshotAsync(token, since));
         app.MapGet("/api/recording/detection", (AiInferenceService inference) => inference.Catalog());
         app.MapPost("/api/recording/detection/reload", async (AiInferenceService inference, CancellationToken token) =>

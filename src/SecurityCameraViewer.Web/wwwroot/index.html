@@ -176,6 +176,7 @@
         <legend>Recording storage</legend>
         <div class="form-row"><label>Recording folder on the server<input name="directory" required maxlength="2048"></label><label>Maximum storage (GB)<input name="maximumStorageGigabytes" type="number" min="0.000000001" step="any" required></label></div>
         <div class="form-row"><p class="help" id="recording-primary-status"></p><div id="recording-primary-actions"></div></div>
+        <p class="help recording-drive-health" id="recording-primary-health" hidden></p>
         <div id="recording-mirror-list"></div>
         <button type="button" id="recording-mirror-add">Add folder</button>
         <p class="help">Create each folder on its mounted drive before adding it. Each drive keeps its own copy and storage limit.</p>
