@@ -89,6 +89,15 @@ public sealed class RecordingStoragePool : IRecordingEventStore, IDisposable
         }
     }
 
+    public IReadOnlyDictionary<string, string> DriveHealthTargets()
+    {
+        lock (_gate)
+        {
+            return _locations.Where(location => location.Status is "ready" or "full")
+                .ToDictionary(location => location.Settings.Directory, location => location.Settings.ArchiveDirectory, StringComparer.Ordinal);
+        }
+    }
+
     public void Poll()
     {
         lock (_gate)

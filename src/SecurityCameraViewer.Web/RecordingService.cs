@@ -91,7 +91,9 @@ public sealed class RecordingService : BackgroundService, IRecordingConnection, 
         _storage = CreateStorage(_settings);
     }
 
-    public object Snapshot()
+    internal RecordingStoragePool? DriveHealthStorage => _demo ? null : Storage;
+
+    internal object Snapshot(RecordingDriveHealthMonitor driveHealth)
     {
         var storage = Storage;
         var store = storage.ReadableStore ?? _emptyStore;
@@ -105,6 +107,9 @@ public sealed class RecordingService : BackgroundService, IRecordingConnection, 
             eventCount = store.Count,
             recordedCameras = store.Cameras,
             storageLocations = locations,
+            driveHealthEnabled = !_demo,
+            driveHealth = locations.Select(location => new { location.Directory, Report = driveHealth.GetReport(storage, location) })
+                .Where(entry => entry.Report is not null).ToArray(),
             storageState = storage.State,
             notice = string.Join(" ", new[] { _settingsStore.Notice, _notice, store.Notice, storage.Notice,
                 _settings.Enabled && !locations.Any(location => location.Active) ? "No recording folder is currently available." : ""

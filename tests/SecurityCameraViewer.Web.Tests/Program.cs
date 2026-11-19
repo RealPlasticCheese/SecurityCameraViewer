@@ -15,6 +15,12 @@ if (Environment.GetEnvironmentVariable("SCV_BROWSER_TEST_CAPTURE") is not null &
     return;
 }
 
+await RecordingDriveHealthTests.RunAsync();
+if (args.Contains("--drive-health-only"))
+{
+    return;
+}
+
 await CameraAspectRatioTests.RunAsync();
 if (args.Contains("--aspect-ratio-only"))
 {
