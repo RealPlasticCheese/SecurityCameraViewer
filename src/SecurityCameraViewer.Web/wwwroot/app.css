@@ -223,7 +223,10 @@ textarea{resize:vertical}
 .recording-dialog button,.recordings-dialog button,.recordings-dialog a{padding:5px 10px}
 .recording-fields input:not([type=checkbox]),.recording-fields select{padding:5px}
 .recording-fields fieldset{border:1px solid #3b4c64;display:grid;gap:8px;margin:0;min-width:0}
-.recording-drive-health{white-space:pre-line;overflow-wrap:anywhere}
+.recording-drive-health,#drive-health-details-folder{white-space:pre-line;overflow-wrap:anywhere}
+#drive-health-details-content{max-height:65dvh;overflow:auto}
+#drive-health-details-content pre{overflow:auto;padding:8px}
+#drive-health-details-content h3{margin-block:12px 4px}
 .recording-fields legend{color:var(--mint);padding:0 6px}
 .template-edit-link{justify-self:start;color:var(--mint);text-decoration:underline;text-underline-offset:3px;font-size:13px}
 #detection-template-dialog form{height:min(850px,calc(100dvh - 26px))}

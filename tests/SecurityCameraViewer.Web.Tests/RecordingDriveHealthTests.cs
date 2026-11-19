@@ -25,6 +25,8 @@ internal static class RecordingDriveHealthTests
         await LinuxStorageAsync();
         await LinuxUnavailableAsync();
         await WindowsStorageAsync();
+        await LinuxDetailsAsync();
+        await WindowsDetailsAsync();
         await MonitorAsync();
         await CommandFailureAsync();
     }
@@ -143,6 +145,61 @@ internal static class RecordingDriveHealthTests
         var noDisk = new DriveHealthProbe((_, _, _) => Result(0, ""));
         Check(await noDisk.ReadWindowsAsync(directory, default) is { Drives.Length: 0, Message: not null },
             "Windows unmapped volumes produce an unavailable report");
+    }
+
+    private static async Task LinuxDetailsAsync()
+    {
+        const string output = "Raw SMART attributes\nID# ATTRIBUTE_NAME\nSMART Error Log\nSMART Self-test log";
+        var probe = new DriveHealthProbe((tool, args, _) => tool switch
+        {
+            "findmnt" => Result(0, Mount),
+            "lsblk" => Result(0, """
+                {"blockdevices":[{"path":"/dev/sda","type":"disk"},{"path":"/dev/sdb","type":"disk"}]}
+                """),
+            "smartctl" when args.SequenceEqual(["--xall", "--nocheck=standby,0", "--", "/dev/sda"]) => Result(8 | 64 | 128, output + "\n"),
+            "smartctl" when args.SequenceEqual(["--xall", "--nocheck=standby,0", "--", "/dev/sdb"]) =>
+                throw new DriveHealthReadException("smartctl did not respond in time."),
+            _ => throw new Exception($"Unexpected command {tool} {string.Join(' ', args)}.")
+        });
+
+        var report = await probe.ReadLinuxDetailsAsync("/archive", default);
+        Check(report.Drives[0] is { Device: "/dev/sda", Output: output, Message: null },
+            "A full SMART report retains attributes and logs even when smartctl reports a failed health check");
+        Check(report.Drives[1] is { Device: "/dev/sdb", Output: null, Message: "smartctl did not respond in time." },
+            "One disk timing out keeps the other physical disks' details available");
+
+        var inaccessible = new DriveHealthProbe((tool, _, _) => tool switch
+        {
+            "findmnt" => Result(0, Mount),
+            "lsblk" => Result(0, """{"blockdevices":[{"path":"/dev/sdc","type":"disk"}]}"""),
+            _ => Result(2, "Permission denied")
+        });
+        Check((await inaccessible.ReadLinuxDetailsAsync("/archive", default)).Drives.Single() is
+            { Device: "/dev/sdc", Output: "Permission denied", Message: not null },
+            "The report keeps useful tool output when a disk is inaccessible");
+    }
+
+    private static async Task WindowsDetailsAsync()
+    {
+        var probe = new DriveHealthProbe((tool, args, _) =>
+        {
+            if (Path.GetFileName(tool) == "powershell.exe")
+            {
+                var script = Encoding.Unicode.GetString(Convert.FromBase64String(args[^1]));
+                Check(script.Contains("if ($true)", StringComparison.Ordinal), "A Windows details request enables the native report");
+                return Result(0, """{"number":2,"details":"Number : 2\nTemperatureMax : 55"}""");
+            }
+
+            Check(args.SequenceEqual(["--xall", "--nocheck=standby,0", "--", "/dev/pd2"]), "Windows requests the complete read-only SMART report");
+            return Result(32, "SMART self-test log");
+        });
+
+        var details = await probe.ReadWindowsDetailsAsync(@"C:\Archive", "smartctl.exe", default);
+        Check(details.Drives.Single() is { Device: "Disk 2", Source: "smartctl", Output: "SMART self-test log", Message: null },
+            "Windows shows the complete SMART output when available");
+        var fallback = await probe.ReadWindowsDetailsAsync(@"C:\Archive", null, default);
+        Check(fallback.Drives.Single() is { Device: "Disk 2", Source: "Windows Storage", Message: not null,
+            Output: "Number : 2\nTemperatureMax : 55" }, "Windows exposes additional native counters when smartmontools is absent");
     }
 
     private static async Task MonitorAsync()

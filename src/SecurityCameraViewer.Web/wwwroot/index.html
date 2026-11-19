@@ -233,6 +233,12 @@
     <div class="dialog-actions"><button type="button" data-close="recording-dialog">Cancel</button><button type="submit" class="primary">Save recording settings</button></div>
   </form>
 </dialog>
+<dialog id="drive-health-details-dialog" class="recording-dialog" aria-labelledby="drive-health-details-title">
+  <div class="dialog-heading"><h2 id="drive-health-details-title">SMART details</h2><button type="button" data-close="drive-health-details-dialog" aria-label="Close SMART details">×</button></div>
+  <p class="help" id="drive-health-details-folder"></p>
+  <p class="help" id="drive-health-details-status" role="status"></p>
+  <div id="drive-health-details-content"></div>
+</dialog>
 <dialog id="detection-template-dialog" class="recording-dialog" aria-labelledby="detection-template-title">
   <form id="detection-template-form">
     <div class="dialog-heading"><h2 id="detection-template-title">Motion detection template settings</h2><button id="detection-template-close" type="button" aria-label="Close template settings">×</button></div>

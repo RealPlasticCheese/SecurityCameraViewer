@@ -5,12 +5,32 @@ namespace SecurityCameraViewer.Web;
 public sealed record ProtectionRequest(bool Protected);
 public sealed record ActivateRecordingStorageRequest(string Directory, string ConfigurationId);
 
+internal sealed record DriveHealthDetailsRequest(string Directory, string ConfigurationId);
+
 public static class RecordingEndpoints
 {
     public static void MapRecordingEndpoints(this WebApplication app)
     {
         app.MapGet("/api/recording", (RecordingService recording, RecordingDriveHealthMonitor driveHealth) =>
             recording.Snapshot(driveHealth));
+        app.MapPost("/api/recording/storage/health/details", async (DriveHealthDetailsRequest request, RecordingService recording,
+            DriveHealthProbe probe, CancellationToken token) =>
+        {
+            var storage = recording.DriveHealthStorage;
+            if (storage is null || string.IsNullOrEmpty(request.Directory) || request.ConfigurationId != recording.Settings.ConfigurationId ||
+                !storage.DriveHealthTargets().TryGetValue(request.Directory, out var archiveDirectory))
+            {
+                return Results.NotFound(new { message = "This saved recording folder is no longer available." });
+            }
+
+            var report = await probe.ReadDetailsAsync(archiveDirectory, token);
+            if (recording.DriveHealthStorage != storage || !storage.DriveHealthTargets().ContainsKey(request.Directory))
+            {
+                return Results.Conflict(new { message = "The recording folder changed during the check. Open SMART details again." });
+            }
+
+            return Results.Ok(report);
+        });
         app.MapGet("/api/detections", (RecordingService recording, CancellationToken token, DateTimeOffset? since) => recording.DetectionSnapshotAsync(token, since));
         app.MapGet("/api/recording/detection", (AiInferenceService inference) => inference.Catalog());
         app.MapPost("/api/recording/detection/reload", async (AiInferenceService inference, CancellationToken token) =>

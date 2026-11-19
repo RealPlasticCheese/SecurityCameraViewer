@@ -53,6 +53,8 @@ The server bounds capture and health waits with `RecordingStorage:IoTimeoutSecon
 - **Windows:** Uses SMART readings when smartmontools is installed under `%ProgramFiles%\smartmontools` and the server account can query the disk. Otherwise, uses the built-in Windows Storage PowerShell module for disk health and available reliability counters.
 - **Linux:** Requires `findmnt` and `lsblk` from util-linux and `smartctl` from smartmontools. The server account needs permission to query the backing devices. SMART details depend on the device and any USB bridge or RAID controller. Standby drives may defer readings.
 
+Select **Show SMART details** beside a saved recording folder to run a fresh, read-only check. The report displays the full diagnostics returned by smartctl, including any available error and self-test logs. On Windows, the app displays Windows Storage diagnostics if it cannot read the SMART report. Opening the report does not start a drive self-test.
+
 Diagnostics may be unavailable for network shares, virtual disks, or filesystems whose physical drives cannot be mapped. Recorder-managed NVR disks have their own storage page.
 
 ## Segments, playback and recovery
