@@ -12,6 +12,10 @@ internal sealed record DriveHealthReading(string Device, string? Model, string S
     long? MediaErrors = null, long? ReallocatedSectors = null, long? PendingSectors = null, long? UncorrectableSectors = null,
     long? UncorrectedReadErrors = null, long? UncorrectedWriteErrors = null, string? Message = null);
 
+internal sealed record DriveHealthDetails(DateTimeOffset CheckedAt, DriveHealthDetail[] Drives, string? Message = null);
+
+internal sealed record DriveHealthDetail(string Device, string Source, string? Output, string? Message = null);
+
 internal sealed record DriveHealthCommandResult(int ExitCode, string Output);
 internal delegate Task<DriveHealthCommandResult> DriveHealthCommand(string executable, string[] arguments, CancellationToken token);
 
@@ -39,12 +43,12 @@ internal sealed class DriveHealthProbe(DriveHealthCommand run)
         }
     }
 
-    internal async Task<DriveHealthReport> ReadLinuxAsync(string directory, CancellationToken token)
+    private async Task<string[]> ResolveLinuxDevicesAsync(string directory, CancellationToken token)
     {
         var mount = await run("findmnt", ["--first-only", "--json", "--output", "MAJ:MIN,FSTYPE", "--target", directory], token);
         if (mount.ExitCode != 0)
         {
-            return Unavailable("The recording folder's filesystem could not be identified.");
+            throw new DriveHealthReadException("The recording folder's filesystem could not be identified.");
         }
 
         using var mountJson = JsonDocument.Parse(mount.Output);
@@ -54,20 +58,35 @@ internal sealed class DriveHealthProbe(DriveHealthCommand run)
             deviceNumber?.Split(':') is not { Length: 2 } numbers ||
             !uint.TryParse(numbers[0], out var major) || major == 0 || !uint.TryParse(numbers[1], out var minor))
         {
-            return Unavailable("The recording filesystem could not be mapped to local physical drives.");
+            throw new DriveHealthReadException("The recording filesystem could not be mapped to local physical drives.");
         }
 
         var topology = await run("lsblk", ["--inverse", "--tree", "--json", "--output", "NAME,PATH,TYPE", $"/dev/block/{major}:{minor}"], token);
         if (topology.ExitCode != 0)
         {
-            return Unavailable("The recording filesystem could not be mapped to local physical drives.");
+            throw new DriveHealthReadException("The recording filesystem could not be mapped to local physical drives.");
         }
 
         using var topologyJson = JsonDocument.Parse(topology.Output);
         var devices = PhysicalDisks(Items(topologyJson.RootElement, "blockdevices")).Distinct(StringComparer.Ordinal).ToArray();
         if (devices.Length == 0)
         {
-            return Unavailable("The recording filesystem could not be mapped to local physical drives.");
+            throw new DriveHealthReadException("The recording filesystem could not be mapped to local physical drives.");
+        }
+
+        return devices;
+    }
+
+    internal async Task<DriveHealthReport> ReadLinuxAsync(string directory, CancellationToken token)
+    {
+        string[] devices;
+        try
+        {
+            devices = await ResolveLinuxDevicesAsync(directory, token);
+        }
+        catch (DriveHealthReadException ex)
+        {
+            return Unavailable(ex.Message);
         }
 
         var drives = new List<DriveHealthReading>(devices.Length);
@@ -81,29 +100,23 @@ internal sealed class DriveHealthProbe(DriveHealthCommand run)
 
     internal async Task<DriveHealthReport> ReadWindowsAsync(string directory, CancellationToken token, string? smartctl = null)
     {
-        // Encode the folder separately so it can never become part of the PowerShell program.
-        var directory64 = Convert.ToBase64String(Encoding.Unicode.GetBytes(directory));
-        var script = WindowsStorageScript.Replace("RECORDING_DIRECTORY_BASE64", directory64, StringComparison.Ordinal);
-        var command = Convert.ToBase64String(Encoding.Unicode.GetBytes(script));
-        var executable = Path.Combine(Environment.SystemDirectory, "WindowsPowerShell", "v1.0", "powershell.exe");
-        var result = await run(executable, ["-NoProfile", "-NonInteractive", "-EncodedCommand", command], token);
-        if (result.ExitCode != 0)
+        JsonDocument json;
+        try
         {
-            return Unavailable("Windows Storage could not read the recording drive. Check the server account's storage permissions.");
+            json = await ReadWindowsDiskAsync(directory, false, token);
         }
-        if (string.IsNullOrWhiteSpace(result.Output))
+        catch (DriveHealthReadException ex)
         {
-            return Unavailable("Windows Storage could not map the recording folder to a supported local disk.");
+            return Unavailable(ex.Message);
         }
 
-        using var json = JsonDocument.Parse(result.Output);
+        using var diskDocument = json;
         var disk = json.RootElement;
         var device = Number(disk, "number");
         if (device is null)
         {
             return Unavailable("Windows Storage did not identify the recording disk.");
         }
-
         var label = $"Disk {device}";
         if (smartctl is not null)
         {
@@ -130,6 +143,101 @@ internal sealed class DriveHealthProbe(DriveHealthCommand run)
             Message: Value(disk, "hasCounters").ValueKind == JsonValueKind.True ? null :
                 "Windows did not expose reliability counters for this disk.");
         return new(DateTimeOffset.UtcNow, [reading]);
+    }
+
+    internal async Task<DriveHealthDetails> ReadDetailsAsync(string directory, CancellationToken token)
+    {
+        try
+        {
+            return OperatingSystem.IsWindows() ? await ReadWindowsDetailsAsync(directory, FindWindowsSmartctl(), token) :
+                OperatingSystem.IsLinux() ? await ReadLinuxDetailsAsync(directory, token) :
+                new(DateTimeOffset.UtcNow, [], "Drive diagnostics are unavailable on this operating system.");
+        }
+        catch (DriveHealthReadException ex)
+        {
+            return new(DateTimeOffset.UtcNow, [], ex.Message);
+        }
+        catch (JsonException)
+        {
+            return new(DateTimeOffset.UtcNow, [], "The drive diagnostics tool returned unreadable data.");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return new(DateTimeOffset.UtcNow, [], "Drive diagnostics could not be read by the server account.");
+        }
+    }
+
+    internal async Task<DriveHealthDetails> ReadLinuxDetailsAsync(string directory, CancellationToken token)
+    {
+        var devices = await ResolveLinuxDevicesAsync(directory, token);
+        var drives = new List<DriveHealthDetail>(devices.Length);
+        foreach (var device in devices)
+        {
+            drives.Add(await ReadSmartDetailsAsync("smartctl", device, device, token));
+        }
+
+        return new(DateTimeOffset.UtcNow, [.. drives]);
+    }
+
+    internal async Task<DriveHealthDetails> ReadWindowsDetailsAsync(string directory, string? smartctl, CancellationToken token)
+    {
+        using var json = await ReadWindowsDiskAsync(directory, true, token);
+        var disk = json.RootElement;
+        var device = WindowsDiskNumber(disk);
+        var label = $"Disk {device}";
+        DriveHealthDetail? smart = smartctl is null ? null : await ReadSmartDetailsAsync(smartctl, $"/dev/pd{device}", label, token);
+        if (smart is { Message: null })
+        {
+            return new(DateTimeOffset.UtcNow, [smart]);
+        }
+
+        var message = smart?.Message ?? "Install smartmontools to read the drive's SMART report.";
+        return new(DateTimeOffset.UtcNow,
+            [new(label, "Windows Storage", String(disk, "details"), message)]);
+    }
+
+    private async Task<JsonDocument> ReadWindowsDiskAsync(string directory, bool includeDetails, CancellationToken token)
+    {
+        // Encode the folder separately so it can never become part of the PowerShell program.
+        var directory64 = Convert.ToBase64String(Encoding.Unicode.GetBytes(directory));
+        var script = WindowsStorageScript.Replace("INCLUDE_DRIVE_DETAILS", includeDetails ? "$true" : "$false", StringComparison.Ordinal)
+            .Replace("RECORDING_DIRECTORY_BASE64", directory64, StringComparison.Ordinal);
+        var command = Convert.ToBase64String(Encoding.Unicode.GetBytes(script));
+        var executable = Path.Combine(Environment.SystemDirectory, "WindowsPowerShell", "v1.0", "powershell.exe");
+        var result = await run(executable, ["-NoProfile", "-NonInteractive", "-EncodedCommand", command], token);
+        if (result.ExitCode != 0)
+        {
+            throw new DriveHealthReadException("Windows Storage could not read the recording drive. Check the server account's storage permissions.");
+        }
+        if (string.IsNullOrWhiteSpace(result.Output))
+        {
+            throw new DriveHealthReadException("Windows Storage could not map the recording folder to a supported local disk.");
+        }
+
+        return JsonDocument.Parse(result.Output);
+    }
+
+    private static long WindowsDiskNumber(JsonElement disk) =>
+        Number(disk, "number") ?? throw new DriveHealthReadException("Windows Storage did not identify the recording disk.");
+
+    private async Task<DriveHealthDetail> ReadSmartDetailsAsync(string executable, string device, string label, CancellationToken token)
+    {
+        try
+        {
+            var result = await run(executable, ["--xall", "--nocheck=standby,0", "--", device], token);
+            var output = string.IsNullOrWhiteSpace(result.Output) ? null : result.Output.TrimEnd();
+            // Health, threshold and log flags can accompany a complete report.
+            var message = (result.ExitCode & 3) != 0 || output is null ? "smartctl could not read this drive." : null;
+            return new(label, "smartctl", output, message);
+        }
+        catch (DriveHealthReadException ex)
+        {
+            return new(label, "smartctl", null, ex.Message);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return new(label, "smartctl", null, "SMART readings could not be accessed by the server account.");
+        }
     }
 
     private async Task<DriveHealthReading> ReadSmartAsync(string executable, string device, string label, CancellationToken token)
@@ -250,7 +358,7 @@ internal sealed class DriveHealthProbe(DriveHealthCommand run)
         $disk = Get-Disk -Partition $partitions[0]
         if ([string]$disk.BusType -notin @('ATA', 'SATA', 'SAS', 'NVMe', 'USB', 'SCSI')) { return }
         $counters = Get-StorageReliabilityCounter -Disk $disk -ErrorAction SilentlyContinue
-        [ordered]@{
+        $result = [ordered]@{
             number = $disk.Number
             model = $disk.FriendlyName
             health = [string]$disk.HealthStatus
@@ -260,7 +368,14 @@ internal sealed class DriveHealthProbe(DriveHealthCommand run)
             wear = $counters.Wear
             readErrors = $counters.ReadErrorsUncorrected
             writeErrors = $counters.WriteErrorsUncorrected
-        } | ConvertTo-Json -Compress
+        }
+        if (INCLUDE_DRIVE_DETAILS) {
+            $result.details = ($disk | Format-List Number,FriendlyName,BusType,HealthStatus,OperationalStatus | Out-String -Width 200).Trim()
+            if ($null -ne $counters) {
+                $result.details += "`n`n" + ($counters | Format-List * | Out-String -Width 200).Trim()
+            }
+        }
+        $result | ConvertTo-Json -Compress
         """;
 
     internal static async Task<DriveHealthCommandResult> RunCommandAsync(string executable, string[] arguments, CancellationToken token)

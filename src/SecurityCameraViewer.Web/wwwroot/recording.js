@@ -2,6 +2,8 @@
 (() => {
   const el = id => document.getElementById(id);
   const settingsDialog = el('recording-dialog'), libraryDialog = el('recordings-dialog'), form = el('recording-form');
+  const driveDetailsDialog = el('drive-health-details-dialog');
+  let driveDetailsRequest;
   const canvas = el('zone-canvas'), ctx = canvas.getContext('2d');
   const fields = ['directory', 'timeZoneId', 'preCaptureSeconds', 'postCaptureSeconds', 'maximumEventSeconds', 'bufferMegabytesPerCamera', 'retentionDays', 'maximumStorageGigabytes'];
   let latest, draft, viewer, currentChannel = 1, picture = null, points = [], drag = null, cursor = null;
@@ -17,8 +19,9 @@
     refreshStatus();
   });
   const button = (text, click) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = text; b.onclick = click; return b; };
-  async function request(path, body, method = 'GET') {
-    const response = await fetch(`/api/${path}`, { method, headers: body === undefined ? {} : { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(180000) });
+  async function request(path, body, method = 'GET', signal) {
+    const timeout = AbortSignal.timeout(180000);
+    const response = await fetch(`/api/${path}`, { method, headers: body === undefined ? {} : { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body), signal: signal ? AbortSignal.any([timeout, signal]) : timeout });
     const data = response.headers.get('content-type')?.includes('application/json') ? await response.json() : null;
     if (response.status === 401) document.dispatchEvent(new Event('scv-sign-in-required'));
     if (!response.ok) throw new Error(data?.message || `Request failed (${response.status}).`);
@@ -73,6 +76,12 @@
     updateCameraTabs();
   }
   document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => { if (!saving) el(b.dataset.close).close(); });
+  driveDetailsDialog.addEventListener('close', () => {
+    if (!driveDetailsDialog.open) driveDetailsRequest?.abort();
+  });
+  settingsDialog.addEventListener('close', () => {
+    if (driveDetailsDialog.open) driveDetailsDialog.close();
+  });
   settingsDialog.addEventListener('cancel', event => { if (saving) event.preventDefault(); });
   let motionHelpLoaded = false;
   el('motion-help').onclick = async () => {
@@ -192,13 +201,15 @@
       const lag = location?.lagSeconds > 0 && !location.active ? ` · ${Math.ceil(location.lagSeconds)}s behind` : '';
       status.textContent = replacement ? 'Replacement will be registered when you save.' : location
         ? `${location.active ? 'Active · ' : ''}${descriptions[location.status] ?? location.status}${lag}` : 'Save to register this folder.';
-      const key = JSON.stringify([directory, mirror !== null, replacement, location?.status, location?.canActivate, saving]);
-      const healthText = latest.driveHealthEnabled && draft.configurationId === latest.settings.configurationId && !replacement && location
-        ? describeDriveHealth(location, latest.driveHealth?.find(entry => entry.directory === directory)?.report) : '';
+      const showHealth = latest.driveHealthEnabled && draft.configurationId === latest.settings.configurationId && !replacement && location;
+      const canReadDetails = showHealth && ['ready', 'catching-up', 'full'].includes(location.status);
+      const key = JSON.stringify([directory, mirror !== null, replacement, location?.status, location?.canActivate, canReadDetails, saving]);
+      const healthText = showHealth ? describeDriveHealth(location, latest.driveHealth?.find(entry => entry.directory === directory)?.report) : '';
       if (health.textContent !== healthText) health.textContent = healthText;
       health.hidden = healthText === '';
       if (controls.dataset.storageKey === key) return;
       controls.dataset.storageKey = key; controls.replaceChildren();
+      if (canReadDetails) controls.append(button('Show SMART details', () => showDriveDetails(directory, draft.configurationId)));
       if (location?.canActivate) controls.append(button('Make active', async () => {
         if (saving) return;
         try {
@@ -217,6 +228,41 @@
         draft.mirrors = draft.mirrors.filter(value => value !== mirror); renderStorageRows();
       }));
       for (const control of controls.children) control.disabled = saving;
+    }
+  }
+  async function showDriveDetails(directory, configurationId) {
+    driveDetailsRequest?.abort();
+    const controller = new AbortController();
+    driveDetailsRequest = controller;
+    const status = el('drive-health-details-status');
+    const content = el('drive-health-details-content');
+    el('drive-health-details-folder').textContent = directory;
+    status.textContent = 'Reading drive diagnostics…';
+    content.replaceChildren();
+    driveDetailsDialog.showModal();
+    try {
+      const details = await request('recording/storage/health/details', { directory, configurationId }, 'POST', controller.signal);
+      if (!driveDetailsDialog.open || controller.signal.aborted) return;
+      status.textContent = [details.message, `Last checked ${new Date(details.checkedAt).toLocaleString()}`].filter(Boolean).join(' · ');
+      for (const drive of details.drives) {
+        const heading = document.createElement('h3');
+        heading.textContent = `${drive.device} · ${drive.source}`;
+        content.append(heading);
+        if (drive.message) {
+          const message = document.createElement('p');
+          message.textContent = drive.message;
+          content.append(message);
+        }
+        if (drive.output) {
+          const report = document.createElement('pre');
+          report.tabIndex = 0;
+          report.setAttribute('aria-label', `Diagnostics for ${drive.device}`);
+          report.textContent = drive.output;
+          content.append(report);
+        }
+      }
+    } catch (error) {
+      if (driveDetailsDialog.open && !controller.signal.aborted) status.textContent = errorText(error);
     }
   }
   function describeDriveHealth(location, report) {

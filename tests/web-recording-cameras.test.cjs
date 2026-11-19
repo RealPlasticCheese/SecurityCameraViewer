@@ -17,7 +17,7 @@ const rules = channel => ({ channel, enabled: true, detectionSubstream: true, se
   motionGateSensitivity: 80, motionGateMinimumAreaPercent: .1, streamSchedule: [], defaultActionIds: [], zones: [] });
 
 function environment(sources) {
-  const nodes = [], images = [], posts = [], activations = [];
+  const nodes = [], images = [], posts = [], activations = [], detailRequests = [];
   let drawnImage = null;
   class Element {
     constructor(tagName) { this.tagName = tagName; this.children = []; this.dataset = {}; this.attributes = {}; this.listeners = {}; this.value = ''; nodes.push(this); }
@@ -62,7 +62,7 @@ function environment(sources) {
   for (const camera of recording.settings.cameras) camera.detectionTemplateId = String(camera.channel).padStart(32, '0');
   const catalog = { methods: [{ id: 'adaptive', name: 'Motion' }], models: [{ id: 'yolox-nano', license: 'Test' }], gpuDevices: [], notices: [] };
   const response = value => ({ ok: true, headers: { get: () => 'application/json' }, json: async () => structuredClone(value) });
-  const context = { document, Option, crypto: require('node:crypto').webcrypto, AbortSignal, structuredClone, Event, setTimeout() {},
+  const context = { document, Option, crypto: require('node:crypto').webcrypto, AbortController, AbortSignal, structuredClone, Event, setTimeout() {},
     RecordingFilters: class { async initialize() {} snapshot() { return { channel: null, zones: [] }; } },
     AiModelSettingsView: class { load() {} save() {} setEnabled() {} },
     Image: class {
@@ -77,12 +77,17 @@ function environment(sources) {
       }
       if (url === '/api/recording/detection' || url === '/api/recording/detection/reload') return response(catalog);
       if (url === '/api/recording/storage/activate') { activations.push(JSON.parse(options.body)); return response(null); }
+      if (url === '/api/recording/storage/health/details') {
+        detailRequests.push({ body: JSON.parse(options.body), signal: options.signal });
+        return context.getDriveDetails();
+      }
       if (url === '/api/recordings/search') return response([]);
       throw new Error(`Unexpected URL: ${url}`);
     }
   };
+  context.driveDetailsResponse = response;
   runInNewContext(source, context);
-  return { el, viewer, recording, catalog, images, posts, activations, context, get drawnImage() { return drawnImage; },
+  return { el, viewer, recording, catalog, images, posts, activations, detailRequests, context, get drawnImage() { return drawnImage; },
     get tabs() { return el('recording-camera-tabs').children; }, open: () => el('recording-settings').onclick(),
     save: () => form.onsubmit({ preventDefault() {} }), openTemplates: () => el('detection-templates-open').onclick(),
     saveTemplates: () => el('detection-template-form').onsubmit({ preventDefault() {} }),
@@ -149,6 +154,36 @@ test('recording storage displays SMART readings, mirrors and unavailable locatio
   directory.value = '/unsaved';
   directory.oninput();
   assert.equal(primary.hidden, true);
+});
+
+test('SMART details are loaded on demand and rendered as plain text', async () => {
+  const env = environment([]);
+  env.recording.driveHealthEnabled = true;
+  env.recording.storageLocations = [{ directory: '/recordings', status: 'ready', active: true }];
+  env.context.getDriveDetails = () => env.context.driveDetailsResponse({ checkedAt: '2026-11-12T10:00:00Z', drives: [
+    { device: '/dev/sdc', source: 'smartctl', output: 'SMART Self-test log\n<untrusted>' },
+    { device: '/dev/sdb', source: 'smartctl', message: 'Permission denied' }
+  ] });
+  await env.open();
+  assert.equal(env.detailRequests.length, 0);
+  const details = env.el('recording-primary-actions').children.find(control => control.textContent === 'Show SMART details');
+  await details.onclick();
+  assert.deepEqual(env.detailRequests[0].body, { directory: '/recordings', configurationId: 'default' });
+  assert.equal(env.el('drive-health-details-dialog').open, true);
+  const content = env.el('drive-health-details-content');
+  assert.equal(content.querySelector('pre').textContent, 'SMART Self-test log\n<untrusted>');
+  assert.equal(content.querySelector('p').textContent, 'Permission denied');
+  assert.match(env.el('drive-health-details-status').textContent, /Last checked/);
+
+  env.el('drive-health-details-dialog').close();
+  let finish;
+  env.context.getDriveDetails = () => new Promise(resolve => { finish = resolve; });
+  const pending = details.onclick();
+  env.el('drive-health-details-dialog').close();
+  assert.equal(env.detailRequests[1].signal.aborted, true);
+  finish(env.context.driveDetailsResponse({ drives: [], message: 'Late report' }));
+  await pending;
+  assert.equal(content.children.length, 0);
 });
 
 const cameras = [
