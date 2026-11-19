@@ -41,14 +41,15 @@ internal sealed class DriveHealthProbe(DriveHealthCommand run)
 
     internal async Task<DriveHealthReport> ReadLinuxAsync(string directory, CancellationToken token)
     {
-        var mount = await run("findmnt", ["--first-only", "--json", "--output", "MAJ:MIN,FSTYPE", "--target", directory], token);
+        var mount = await run("findmnt", ["--list", "--direction", "forward", "--json", "--output", "MAJ:MIN,FSTYPE", "--target", directory], token);
         if (mount.ExitCode != 0)
         {
             return Unavailable("The recording folder's filesystem could not be identified.");
         }
 
         using var mountJson = JsonDocument.Parse(mount.Output);
-        var filesystem = Items(mountJson.RootElement, "filesystems").FirstOrDefault();
+        // With systemd automounts, findmnt lists the autofs trigger before the filesystem mounted over it.
+        var filesystem = Items(mountJson.RootElement, "filesystems").LastOrDefault();
         var deviceNumber = String(filesystem, "maj:min");
         if (String(filesystem, "fstype") is "btrfs" or "bcachefs" or "zfs" ||
             deviceNumber?.Split(':') is not { Length: 2 } numbers ||

@@ -23,6 +23,7 @@ internal static class RecordingDriveHealthTests
     public static async Task RunAsync()
     {
         await LinuxStorageAsync();
+        await LinuxAutomountAsync();
         await LinuxUnavailableAsync();
         await WindowsStorageAsync();
         await MonitorAsync();
@@ -72,11 +73,67 @@ internal static class RecordingDriveHealthTests
             "An inaccessible RAID member leaves the other devices' readings visible");
     }
 
+    private static async Task LinuxAutomountAsync()
+    {
+        var probe = new DriveHealthProbe((tool, args, _) =>
+        {
+            switch (tool)
+            {
+                case "findmnt":
+                    Check(args.Contains("--list") && !args.Contains("--first-only"), "Linux requests all matching mount entries as a flat list");
+                    return args[^1] switch
+                    {
+                        "/mnt/nvr1/recordings" => Result(0, """
+                            {"filesystems":[{"fstype":"autofs","maj:min":"0:38"},{"fstype":"ext4","maj:min":"8:33"}]}
+                            """),
+                        "/mnt/nvr2/recordings" => Result(0, """
+                            {"filesystems":[{"fstype":"autofs","maj:min":"0:39"},{"fstype":"ext4","maj:min":"8:17"}]}
+                            """),
+                        _ => throw new Exception($"Unexpected mount target {args[^1]}.")
+                    };
+                case "lsblk":
+                    return args[^1] switch
+                    {
+                        "/dev/block/8:33" => Result(0, """
+                            {"blockdevices":[{"path":"/dev/sdc1","type":"part","children":[{"path":"/dev/sdc","type":"disk"}]}]}
+                            """),
+                        "/dev/block/8:17" => Result(0, """
+                            {"blockdevices":[{"path":"/dev/sdb1","type":"part","children":[{"path":"/dev/sdb","type":"disk"}]}]}
+                            """),
+                        _ => throw new Exception($"Unexpected block device {args[^1]}.")
+                    };
+                case "smartctl":
+                    return Result(0, """{"smart_status":{"passed":true}}""");
+                default:
+                    throw new Exception($"Unexpected tool {tool}.");
+            }
+        });
+
+        var primary = await probe.ReadLinuxAsync("/mnt/nvr1/recordings", default);
+        var mirror = await probe.ReadLinuxAsync("/mnt/nvr2/recordings", default);
+        Check(primary.Drives.Single() is { Device: "/dev/sdc", Status: "healthy" } &&
+              mirror.Drives.Single() is { Device: "/dev/sdb", Status: "healthy" },
+            "Systemd automounts resolve to the whole disks behind the mounted ext4 partitions");
+    }
+
     private static async Task LinuxUnavailableAsync()
     {
         var network = new DriveHealthProbe((tool, _, _) => tool == "findmnt"
             ? Result(0, """{"filesystems":[{"maj:min":"0:39","fstype":"cifs"}]}""") : throw new Exception($"Unexpected probe of {tool}."));
         Check(await network.ReadLinuxAsync("/share", default) is { Drives.Length: 0, Message: not null }, "Network storage has no local drive report");
+
+        var stacked = new DriveHealthProbe((tool, _, _) => tool == "findmnt"
+            ? Result(0, """
+                {"filesystems":[{"maj:min":"8:33","fstype":"ext4"},{"maj:min":"0:38","fstype":"cifs"}]}
+                """) : throw new Exception($"Unexpected probe of {tool}."));
+        Check(await stacked.ReadLinuxAsync("/share", default) is { Drives.Length: 0, Message: not null },
+            "A network share does not report a hidden local disk's health");
+
+        var idle = new DriveHealthProbe((tool, _, _) => tool == "findmnt"
+            ? Result(0, """{"filesystems":[{"maj:min":"0:38","fstype":"autofs"}]}""")
+            : throw new Exception($"Unexpected probe of {tool}."));
+        Check(await idle.ReadLinuxAsync("/idle", default) is { Drives.Length: 0, Message: not null },
+            "An autofs trigger without a mounted filesystem does not probe a disk");
 
         foreach (var (exit, output, status) in new[]
         {
